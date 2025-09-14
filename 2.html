@@ -1,208 +1,75 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Quiz — Student</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kahoot Clone — Student</title>
 <style>
-  :root{--bg:#f8fafc}
-  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:12px;background:var(--bg);color:#111}
-  .wrap{max-width:720px;margin:0 auto}
-  .card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-top:12px}
-  input{padding:10px;border-radius:8px;border:1px solid #ccc;width:calc(100% - 24px)}
-  button{background:#2b6cb0;color:#fff;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
-  .qText{font-size:22px;font-weight:700;margin-top:8px}
-  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-  .optBtn{padding:18px;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer;color:#fff}
-  .c-red{background:#ef4444} .c-blue{background:#3b82f6} .c-yellow{background:#f59e0b;color:#222} .c-green{background:#10b981}
-  .timer{font-weight:800;font-size:18px;color:#e53e3e}
-  #status{margin-top:10px;font-weight:700}
-  .small{font-size:13px;color:#555}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto;background:#111;color:#fff;margin:0;padding:0}
+  .container{max-width:600px;margin:20px auto;padding:0 12px}
+  .card{background:#222;padding:20px;border-radius:12px}
+  input,button{padding:12px;font-size:16px;border-radius:8px;border:none;margin-bottom:12px;width:100%}
+  button{background:#2b6cb0;color:#fff;cursor:pointer}
+  .question{font-size:22px;font-weight:700;margin-bottom:20px;animation:fadeIn 0.5s}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .opt{padding:40px;border-radius:16px;font-weight:800;font-size:18px;cursor:pointer;text-align:center;animation:zoomIn 0.4s}
+  .opt:active{transform:scale(0.9)}
+  .red{background:#e74c3c}.blue{background:#3498db}.yellow{background:#f1c40f;color:#222}.green{background:#2ecc71}
+  .timer{font-size:20px;font-weight:800;margin:10px 0;color:#f1c40f}
+  .score{margin-top:20px;font-size:18px}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes zoomIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <h2>Student</h2>
-    <div id="joinArea">
-      <input id="nameInput" placeholder="Tên của bạn" /><br/><br/>
-      <input id="roomInput" placeholder="Mã phòng (ví dụ A1-123456)" /><br/><br/>
-      <button id="joinBtn">Join Room</button>
-    </div>
-
-    <div id="playArea" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><strong id="roomLabel"></strong></div>
-        <div class="timer">Time: <span id="timeLeft">0</span>s</div>
-      </div>
-
-      <div class="qText" id="qText">Chưa có câu hỏi</div>
-      <div class="small" id="qHint"></div>
-
-      <div id="opts" class="opts" style="margin-top:12px"></div>
-
-      <div id="fillArea" style="margin-top:12px;display:none">
-        <input id="fillInput" placeholder="Nhập đáp án..." />
-        <button id="fillSubmit">Gửi</button>
-      </div>
-
-      <div id="status" class="small">Trạng thái: Chưa vào phòng</div>
-
-      <div class="card" style="margin-top:12px">
-        <div><strong>Điểm của bạn:</strong> <span id="myScore">0</span></div>
-        <div><strong>Hạng:</strong> <span id="myRank">-</span> <span id="medal"></span></div>
-        <div id="top3" style="margin-top:8px"></div>
-      </div>
-    </div>
+<div class="container">
+  <div class="card" id="joinBox">
+    <input id="nameInput" placeholder="Tên của bạn"/>
+    <input id="roomInput" placeholder="Mã phòng"/>
+    <button id="joinBtn">Join Room</button>
+  </div>
+  <div class="card" id="playBox" style="display:none">
+    <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
+    <div class="question" id="qText">Chờ giáo viên...</div>
+    <div class="opts" id="opts"></div>
+    <div class="score">Điểm: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span><span id="medal"></span></div>
   </div>
 </div>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-/* Firebase config (same as teacher) */
-const firebaseConfig = {
-  apiKey: "AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
-  authDomain: "kahoot-like-5251e.firebaseapp.com",
-  databaseURL: "https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "kahoot-like-5251e",
-  storageBucket: "kahoot-like-5251e.appspot.com",
-  messagingSenderId: "805207333072",
-  appId: "1:805207333072:web:63d23d41b05fa6bd71e6d5",
-  measurementId: "G-R81TFGX355"
-};
+const firebaseConfig={apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
+authDomain:"kahoot-like-5251e.firebaseapp.com",
+databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId:"kahoot-like-5251e",storageBucket:"kahoot-like-5251e.appspot.com",
+messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"};
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db=firebase.database();
+let roomId=null,playerId="p"+Math.floor(Math.random()*1e6),playerName="";
 
-let roomId = null;
-let playerId = localStorage.getItem('playerId') || ('p' + Math.floor(Math.random()*1000000));
-localStorage.setItem('playerId', playerId);
-let playerName = null;
-let joined = false;
-let currentQIndex = -1;
+document.getElementById("joinBtn").onclick=async()=>{
+playerName=document.getElementById("nameInput").value;roomId=document.getElementById("roomInput").value;
+await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName,joinedAt:Date.now()});
+document.getElementById("joinBox").style.display="none";
+document.getElementById("playBox").style.display="block";
+listenQ();listenRank();};
 
-/* Join */
-document.getElementById('joinBtn').onclick = async ()=>{
-  const name = (document.getElementById('nameInput').value || '').trim();
-  const room = (document.getElementById('roomInput').value || '').trim();
-  if(!name || !room){ alert('Nhập tên và mã phòng'); return; }
-  playerName = name; roomId = room;
-  await db.ref('rooms/'+roomId+'/players/'+playerId).set({name: playerName, joinedAt: Date.now()});
-  // ensure scores exist
-  const s = await db.ref('rooms/'+roomId+'/scores/'+playerId).once('value');
-  if(!s.exists()) await db.ref('rooms/'+roomId+'/scores/'+playerId).set(0);
-  document.getElementById('joinArea').style.display = 'none';
-  document.getElementById('playArea').style.display = 'block';
-  document.getElementById('roomLabel').textContent = roomId;
-  document.getElementById('status').textContent = 'Đã vào phòng. Chờ giáo viên phát câu hỏi...';
-  joined = true;
-  listenCurrent();
-  listenScoresAndRanking();
-};
-
-/* Listen current question */
-function listenCurrent(){
-  db.ref('rooms/'+roomId+'/current').on('value', snap=>{
-    const cur = snap.val();
-    if(!cur) return;
-    document.getElementById('timeLeft').textContent = cur.timeLeft !== undefined ? cur.timeLeft : (cur.q && cur.q.time ? cur.q.time : 0);
-    if(cur.status === 'open'){
-      showQuestion(cur);
-    } else {
-      document.getElementById('status').textContent = 'Vòng đóng — chờ kết quả';
-      hideQuestion();
-    }
-  });
-  // listen lastRound to show gained points when teacher finished scoring
-  db.ref('rooms/'+roomId+'/lastRound').on('value', snap=>{
-    const lr = snap.val();
-    if(!lr) return;
-    // if lastRound corresponds to the question we saw, show delta
-    const delta = (lr.deltas && lr.deltas[playerId]) ? lr.deltas[playerId] : 0;
-    if(delta !== undefined){
-      document.getElementById('status').textContent = `Lượt vừa rồi: ${delta>0? '+'+delta : delta} điểm`;
-    }
-  });
-}
-
-/* Show question */
-function showQuestion(cur){
-  const q = cur.q;
-  currentQIndex = cur.index;
-  document.getElementById('qText').textContent = q.text || '';
-  document.getElementById('qHint').textContent = q.level ? ('Level: '+q.level) : '';
-  document.getElementById('opts').innerHTML = '';
-  document.getElementById('fillArea').style.display = 'none';
-  document.getElementById('status').textContent = 'Câu hỏi mở — chọn đáp án';
-  document.getElementById('timeLeft').textContent = cur.timeLeft !== undefined ? cur.timeLeft : (q.time||30);
-
-  if(q.type === 'fill'){
-    document.getElementById('fillArea').style.display = 'block';
-    document.getElementById('opts').style.display = 'none';
-    document.getElementById('fillSubmit').onclick = async ()=>{
-      const v = document.getElementById('fillInput').value.trim();
-      if(v==='') return;
-      await submitAnswer(v);
-    };
-  } else {
-    document.getElementById('opts').style.display = 'grid';
-    const colors = ['c-red','c-blue','c-yellow','c-green'];
-    (q.options||[]).forEach((o,i)=>{
-      const b = document.createElement('div'); b.className = 'optBtn '+colors[i%colors.length];
-      b.textContent = String.fromCharCode(65+i) + '. ' + o;
-      b.onclick = ()=> submitAnswer(i);
-      document.getElementById('opts').appendChild(b);
-    });
-    document.getElementById('fillArea').style.display = 'none';
-  }
-}
-
-/* Hide question after answer */
-function hideQuestion(){
-  document.getElementById('opts').innerHTML = '';
-  document.getElementById('fillArea').style.display = 'none';
-}
-
-/* Submit answer */
-async function submitAnswer(ans){
-  if(!joined || !roomId) return;
-  const now = Date.now();
-  await db.ref('rooms/'+roomId+'/current/answers/'+playerId).set({
-    name: playerName,
-    answer: ans,
-    time: now
-  });
-  document.getElementById('status').textContent = 'Đã gửi đáp án — chờ kết quả...';
-  hideQuestion();
-}
-
-/* Listen scores & ranking */
-function listenScoresAndRanking(){
-  db.ref('rooms/'+roomId+'/scores/'+playerId).on('value', snap=>{
-    const s = snap.val() || 0;
-    document.getElementById('myScore').textContent = s;
-  });
-  db.ref('rooms/'+roomId+'/ranking').on('value', snap=>{
-    const rankArr = snap.val() || [];
-    // display top3
-    const top3Div = document.getElementById('top3'); top3Div.innerHTML = '';
-    let myRank = '-';
-    for(let i=0;i<rankArr.length;i++){
-      const r = rankArr[i];
-      const pid = r.pid || r[0];
-      const sc = r.score || r[1];
-      const name = pid;
-      if(i<3){
-        top3Div.innerHTML += `<div>${i+1}. ${name} — ${sc} pts</div>`;
-      }
-      if(pid === playerId) myRank = i+1;
-    }
-    document.getElementById('myRank').textContent = myRank;
-    document.getElementById('medal').textContent = myRank === 1 ? ' 🥇' : (myRank === 2 ? ' 🥈' : (myRank === 3 ? ' 🥉' : ''));
-  });
-}
+function listenQ(){db.ref("rooms/"+roomId+"/current").on("value",snap=>{
+const cur=snap.val();if(!cur)return;
+document.getElementById("timeLeft").textContent=cur.timeLeft||0;
+if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}});}
+function showQ(q){document.getElementById("qText").textContent=q.text;
+const box=document.getElementById("opts");box.innerHTML="";const colors=["red","blue","yellow","green"];
+(q.options||[]).forEach((o,i)=>{const d=document.createElement("div");d.className="opt "+colors[i%4];d.textContent=o;
+d.onclick=()=>submit(i);box.appendChild(d);});}
+async function submit(ans){await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});
+document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";}
+function listenRank(){db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{document.getElementById("myScore").textContent=s.val()||0;});
+db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{const arr=snap.val()||[];let rank="-";
+arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
+document.getElementById("myRank").textContent=rank;
+document.getElementById("medal").textContent=rank==1?" 🥇":rank==2?" 🥈":rank==3?" 🥉":"";});}
 </script>
 </body>
 </html>
