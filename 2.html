@@ -10,15 +10,15 @@
   .card{background:#222;padding:20px;border-radius:12px}
   input,button{padding:12px;font-size:16px;border-radius:8px;border:none;margin-bottom:12px;width:100%}
   button{background:#2b6cb0;color:#fff;cursor:pointer}
-  .question{font-size:22px;font-weight:700;margin-bottom:20px;animation:fadeIn 0.5s}
+  .question{font-size:22px;font-weight:700;margin-bottom:20px;animation:fadeIn .5s}
   .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:40px;border-radius:16px;font-weight:800;font-size:18px;cursor:pointer;text-align:center;animation:zoomIn 0.4s}
-  .opt:active{transform:scale(0.9)}
+  .opt{padding:40px;border-radius:16px;font-weight:800;font-size:18px;cursor:pointer;text-align:center;animation:zoomIn .4s}
+  .opt:active{transform:scale(.9)}
   .red{background:#e74c3c}.blue{background:#3498db}.yellow{background:#f1c40f;color:#222}.green{background:#2ecc71}
   .timer{font-size:20px;font-weight:800;margin:10px 0;color:#f1c40f}
   .score{margin-top:20px;font-size:18px}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  @keyframes zoomIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes zoomIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
@@ -36,6 +36,10 @@
   </div>
 </div>
 
+<!-- Âm thanh -->
+<audio id="sound-correct" src="https://actions.google.com/sounds/v1/cartoon/clang.ogg"></audio>
+<audio id="sound-wrong" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
@@ -46,30 +50,45 @@ projectId:"kahoot-like-5251e",storageBucket:"kahoot-like-5251e.appspot.com",
 messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
+
 let roomId=null,playerId="p"+Math.floor(Math.random()*1e6),playerName="";
 
 document.getElementById("joinBtn").onclick=async()=>{
-playerName=document.getElementById("nameInput").value;roomId=document.getElementById("roomInput").value;
-await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName,joinedAt:Date.now()});
-document.getElementById("joinBox").style.display="none";
-document.getElementById("playBox").style.display="block";
-listenQ();listenRank();};
+  playerName=document.getElementById("nameInput").value;
+  roomId=document.getElementById("roomInput").value;
+  await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName,joinedAt:Date.now()});
+  document.getElementById("joinBox").style.display="none";
+  document.getElementById("playBox").style.display="block";
+  listenQ();listenRank();
+};
 
-function listenQ(){db.ref("rooms/"+roomId+"/current").on("value",snap=>{
-const cur=snap.val();if(!cur)return;
-document.getElementById("timeLeft").textContent=cur.timeLeft||0;
-if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}});}
-function showQ(q){document.getElementById("qText").textContent=q.text;
-const box=document.getElementById("opts");box.innerHTML="";const colors=["red","blue","yellow","green"];
-(q.options||[]).forEach((o,i)=>{const d=document.createElement("div");d.className="opt "+colors[i%4];d.textContent=o;
-d.onclick=()=>submit(i);box.appendChild(d);});}
-async function submit(ans){await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});
-document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";}
-function listenRank(){db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{document.getElementById("myScore").textContent=s.val()||0;});
-db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{const arr=snap.val()||[];let rank="-";
-arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
-document.getElementById("myRank").textContent=rank;
-document.getElementById("medal").textContent=rank==1?" 🥇":rank==2?" 🥈":rank==3?" 🥉":"";});}
+function listenQ(){
+  db.ref("rooms/"+roomId+"/current").on("value",snap=>{
+    const cur=snap.val();if(!cur)return;
+    document.getElementById("timeLeft").textContent=cur.timeLeft||0;
+    if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}
+  });
+}
+function showQ(q){
+  document.getElementById("qText").textContent=q.text;
+  const box=document.getElementById("opts");box.innerHTML="";
+  ["red","blue","yellow","green"].forEach((c,i)=>{if(q.options[i]){const d=document.createElement("div");d.className="opt "+c;d.textContent=q.options[i];
+  d.onclick=()=>submit(i,q.correct);box.appendChild(d);}});
+}
+async function submit(ans,correct){
+  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});
+  document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";
+  if(ans==correct)document.getElementById("sound-correct").play();
+  else document.getElementById("sound-wrong").play();
+}
+function listenRank(){
+  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{document.getElementById("myScore").textContent=s.val()||0;});
+  db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{
+    const arr=snap.val()||[];let rank="-";
+    arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
+    document.getElementById("myRank").textContent=rank;
+    document.getElementById("medal").textContent=rank==1?" 🥇":rank==2?" 🥈":rank==3?" 🥉":"";});
+}
 </script>
 </body>
 </html>
