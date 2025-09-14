@@ -207,7 +207,12 @@ function showQuestion(){
   let q=questions[currentIndex];
   teacherShuffle=shuffleArray(q.options.map((o,i)=>({text:o,index:i})));
 
-  db.ref("rooms/"+roomId).update({currentIndex:currentIndex,question:q,teacherShuffle:teacherShuffle});
+  db.ref("rooms/"+roomId+"/current").set({
+  q: q,
+  teacherShuffle: teacherShuffle,
+  startAt: Date.now(),
+  status: "playing"
+});
 
   document.getElementById("waitingView").classList.add("hidden");
   document.getElementById("afterView").classList.add("hidden");
@@ -259,7 +264,7 @@ function finishQuestion(){
   document.getElementById("questionView").classList.add("hidden");
   document.getElementById("afterView").classList.remove("hidden");
 
-  // hiển thị đáp án đúng cho giáo viên
+    // hiển thị đáp án đúng cho giáo viên
   if(!q.type){
     let opts=document.querySelectorAll(".opt");
     opts.forEach((el,idx)=>{
@@ -272,9 +277,13 @@ function finishQuestion(){
   }
 
   document.getElementById("soundEnd").play();
+
+  // 🔹 cập nhật trạng thái sang "closed" để học sinh bắt được
+  db.ref("rooms/"+roomId+"/current/status").set("closed");
 }
 
 // xem bảng xếp hạng
+
 document.getElementById("showTopBtn").onclick=()=>{
   showLeaderboard();
 };
