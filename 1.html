@@ -97,6 +97,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
+// ==== Firebase init ====
 const firebaseConfig={apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
 authDomain:"kahoot-like-5251e.firebaseapp.com",
 databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -105,293 +106,249 @@ messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-let roomId=null,currentIndex=-1,countdown=null,playersCache={}, teacherShuffle=[];
-
-// ===== 28 câu (giữ nguyên nội dung, 7/14/21/28 là input) =====
-const questions=[
-{text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:30},
-{text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:30},
-{text:"60° = ?",options:["π/3","π/2","2π/3","π/4"],correct:0,time:30},
-{text:"180° = ?",options:["π","π/2","2π","3π/2"],correct:0,time:30},
-{text:"270° = ?",options:["3π/2","π","2π","π/2"],correct:0,time:30},
-{text:"360° = ?",options:["2π","π","π/2","3π/2"],correct:0,time:30},
-{text:"30° = ?",type:"input",correctText:"pi/6",time:30}, //7 input
-{text:"120° = ?",options:["2π/3","π/3","π/2","π"],correct:0,time:30},
-{text:"150° = ?",options:["5π/6","π/2","2π/3","π"],correct:0,time:30},
-{text:"210° = ?",options:["7π/6","π","3π/2","2π"],correct:0,time:30},
-{text:"240° = ?",options:["4π/3","π","π/2","3π/2"],correct:0,time:30},
-{text:"300° = ?",options:["5π/3","π","π/2","2π"],correct:0,time:30},
-{text:"330° = ?",options:["11π/6","π","π/2","2π"],correct:0,time:30},
-{text:"Sinh(0°) = ?",type:"input",correctText:"0",time:30}, //14 input
-{text:"Cos(0°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
-{text:"Sin(90°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
-{text:"Cos(90°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
-{text:"Sin(180°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
-{text:"Cos(180°) = ?",options:["-1","0","1","Không xác định"],correct:0,time:30},
-{text:"Sin(270°) = ?",options:["-1","0","1","Không xác định"],correct:0,time:30},
-{text:"Sin(270°) = ?",type:"input",correctText:"-1",time:30}, //21 input
-{text:"Cos(270°) = ?",options:["0","-1","1","Không xác định"],correct:0,time:30},
-{text:"Sin(360°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
-{text:"Cos(360°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
-{text:"Tan(45°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
-{text:"Cot(45°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
-{text:"Tan(0°) = ?",options:["0","1","Không xác định","-1"],correct:0,time:30},
-{text:"Tan(90°) = ?",options:["Không xác định","0","1","-1"],correct:0,time:30},
-{text:"Cot(0°) = ?",options:["Không xác định","0","1","-1"],correct:0,time:30},
-{text:"Cot(90°) = ?",type:"input",correctText:"khong xac dinh",time:30} //28 input
+// ==== Bộ câu hỏi mới ====
+let allQuestions=[
+// Chủ đề 1
+{text:"90° đổi sang radian bằng bao nhiêu?",options:["pi/2","pi","2pi","pi/3"],correct:0,time:30},
+{text:"180° = ?",options:["pi","pi/2","2pi","3pi/2"],correct:0,time:30},
+{text:"360° = ?",options:["2pi","pi","pi/2","3pi/2"],correct:0,time:30},
+{text:"45° = ?",options:["pi/4","pi/3","pi/6","pi/2"],correct:0,time:30},
+{text:"30° = ?",options:["pi/6","pi/3","pi/4","pi/2"],correct:0,time:30},
+{text:"Radian của 120° là?",options:["2pi/3","pi/2","pi/3","pi"],correct:0,time:90},
+{text:"Đổi 225° sang radian (nhập dạng có pi)",type:"input",correctText:"5pi/4",time:90},
+// Chủ đề 2
+{text:"Công thức tính độ dài cung tròn là gì?",options:["l=R·a","l=R/a","l=a/R","l=R+a"],correct:0,time:30},
+{text:"Cho R=2, a=pi. Độ dài cung l=?",options:["2pi","pi","4pi","pi/2"],correct:0,time:30},
+{text:"Cho l=pi, R=1. Số đo cung a=?",options:["pi","2pi","pi/2","1"],correct:0,time:30},
+{text:"Cho R=3, a=pi/2. Độ dài cung l=?",options:["3pi/2","3pi","pi/2","6pi"],correct:0,time:30},
+{text:"Nếu l=2pi, a=pi thì R bằng bao nhiêu?",options:["2","1","pi","4"],correct:0,time:30},
+{text:"Một bánh xe có bán kính 0,5m quay được góc 4rad. Độ dài cung l mà điểm trên vành bánh xe đi được là?",options:["2m","1m","4m","0,5m"],correct:0,time:90},
+{text:"Một vòng tròn có R=7m, cung có số đo 120°. Tính độ dài cung (nhập kết quả dạng pi)",type:"input",correctText:"14pi/3",time:90},
+// Chủ đề 3
+{text:"Cho điểm M(1,0) trên đường tròn đơn vị, góc a tương ứng. cos a = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
+{text:"Cho điểm M(0,1). sin a = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
+{text:"Cho điểm M(-1,0). cos a = ?",options:["-1","0","1","Không xác định"],correct:0,time:30},
+{text:"Tan 45° = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
+{text:"Cot 45° = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
+{text:"Cho M(0,-1). sin a = ?",options:["-1","0","1","Không xác định"],correct:0,time:90},
+{text:"Tính sin 780° (nhập kết quả dạng pi hoặc can)",type:"input",correctText:"can(3)/2",time:90},
+// Chủ đề 4
+{text:"Công thức nào đúng?",options:["sin²a+cos²a=1","sin²a−cos²a=1","tan²a+1=cos²a","cot²a+1=tan²a"],correct:0,time:30},
+{text:"Tan a = ?",options:["sin a / cos a","cos a / sin a","1/cos a","1/sin a"],correct:0,time:30},
+{text:"Cot a = ?",options:["cos a / sin a","sin a / cos a","1/tan a","tan a"],correct:0,time:30},
+{text:"Cos(180°−a) = ?",options:["−cos a","cos a","sin a","−sin a"],correct:0,time:30},
+{text:"Sin(180°−a) = ?",options:["sin a","−sin a","cos a","−cos a"],correct:0,time:30},
+{text:"Công thức nào sau đây đúng?",options:["1+tan²a=1/cos²a","1+sin²a=cos²a","1+cot²a=sin²a","cos²a+1=tan²a"],correct:0,time:90},
+{text:"Cho sin a=3/4, 90°<a<180°. Tính tan a (nhập phân số).",type:"input",correctText:"3/can(7)",time:90},
 ];
+// shuffle MCQ, giữ input tại 7,14,21,28
+function shuffleExceptInputs(qs){
+  const inputPos={7:qs[6],14:qs[13],21:qs[20],28:qs[27]};
+  let mcq=qs.filter((q,i)=>![6,13,20,27].includes(i));
+  for(let i=mcq.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [mcq[i],mcq[j]]=[mcq[j],mcq[i]];
+  }
+  let result=[];let idx=0;
+  for(let i=1;i<=28;i++){
+    if([7,14,21,28].includes(i)) result.push(inputPos[i]);
+    else result.push(mcq[idx++]);
+  }
+  return result;
+}
+const questions=shuffleExceptInputs(allQuestions);
 
-// helpers
-function shuffleArray(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
-function genRoom(){const n=Math.floor(Math.random()*90)+10;return "A"+n;}
-
-// create room
-document.getElementById("createRoom").onclick=async()=>{
-  roomId=genRoom();
-  await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{},ranking:[]});
-  document.getElementById("roomInfo").textContent="Room: "+roomId;
+// Biến chung
+let roomId=null,currentIndex=-1,countdown=null,playersCache={}, teacherShuffle=[];
+</script>
+<script>
+// ====== Tạo phòng và quản lý người chơi ======
+document.getElementById("createRoom").onclick=()=>{
+  roomId=Math.random().toString(36).substring(2,7).toUpperCase();
+  db.ref("rooms/"+roomId).set({status:"waiting",players:{},currentIndex:-1});
+  document.getElementById("roomInfo").innerText="Room ID: "+roomId;
   document.getElementById("startBtn").disabled=false;
-  document.getElementById("waitingView").classList.remove("hidden");
-
-  // listen players
-  db.ref("rooms/"+roomId+"/players").on("value",s=>{
-    playersCache = s.val() || {};
-    renderPlayersList();
-  });
-
-  // auto finish if all answered (NEW)
-  db.ref("rooms/"+roomId+"/current/answers").on("value", snap=>{
-    const answers = snap.val() || {};
-    const playersCount = Object.keys(playersCache).length;
-    const answersCount = Object.keys(answers).length;
-    if(playersCount > 0 && answersCount >= playersCount){
-      // slight debounce to allow final write
-      setTimeout(()=>{ finishQuestion(); }, 250);
-    }
-  });
 };
 
-function renderPlayersList(){
-  let html=""; Object.values(playersCache).forEach(p=>{ html += "<div>"+p.name+"</div>"; });
-  document.getElementById("playersList").innerHTML = html || "-";
-}
+db.ref("rooms").on("child_removed",snap=>{
+  if(snap.key===roomId){alert("Room closed");location.reload();}
+});
 
-// start
+// Cập nhật danh sách người chơi
+function updatePlayersList(players){
+  let html="";
+  for(let id in players){
+    html+=`<div class="row"><span>${players[id].name}</span><span>${players[id].score||0}</span></div>`;
+  }
+  document.getElementById("playersList").innerHTML=html||"-";
+}
+</script>
+<script>
+// ====== Bắt đầu game ======
 document.getElementById("startBtn").onclick=()=>{
-  document.getElementById("playersCard").style.display="none";
-  document.getElementById("soundStart").play();
-  try{document.getElementById("bgMusic").play();}catch(e){}
-  currentIndex = -1; nextQuestion();
   db.ref("rooms/"+roomId).update({status:"playing"});
+  currentIndex=0;
+  showQuestion();
+  document.getElementById("bgMusic").play();
 };
 
-function nextQuestion(){
-  currentIndex++;
-  if(currentIndex >= questions.length){ endGame(); return; }
-  showQuestion(questions[currentIndex]);
-}
+// ====== Hiển thị câu hỏi ======
+function showQuestion(){
+  if(currentIndex>=questions.length){
+    endGame();
+    return;
+  }
+  let q=questions[currentIndex];
+  teacherShuffle=shuffleArray(q.options.map((o,i)=>({text:o,index:i})));
 
-function showQuestion(q){
+  db.ref("rooms/"+roomId).update({currentIndex:currentIndex,question:q,teacherShuffle:teacherShuffle});
+
   document.getElementById("waitingView").classList.add("hidden");
   document.getElementById("afterView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.add("hidden");
   document.getElementById("finalView").classList.add("hidden");
   document.getElementById("questionView").classList.remove("hidden");
 
-  document.getElementById("qText").textContent = q.text;
-  const box = document.getElementById("optionsBox"); box.innerHTML = "";
-
-  if(q.type === "input"){
-    // teacher preview (teacher sees correct text preview)
-    const preview = document.createElement("div");
-    preview.style.padding="12px"; preview.style.borderRadius="8px"; preview.style.background="#eef2ff";
-    preview.textContent = "Input — đáp án mong đợi: " + (q.correctText||"");
-    box.appendChild(preview);
-    teacherShuffle = [];
-  } else {
-    // teacher shuffle for display (NEW)
-    const opts = q.options.slice();
-    const idxs = opts.map((_,i)=>i);
-    shuffleArray(idxs);
-    teacherShuffle = idxs.slice(); // local mapping: localIdx -> originalIdx
-    const colors = ["red","blue","yellow","green"];
-    idxs.forEach((origIdx,k)=>{
-      const d = document.createElement("div");
-      d.className = "opt " + colors[k%4];
-      d.textContent = String.fromCharCode(65+k) + ". " + q.options[origIdx];
-      box.appendChild(d);
+  document.getElementById("qText").innerText=q.text;
+  let optBox=document.getElementById("optionsBox");
+  optBox.innerHTML="";
+  if(!q.type){ // multiple choice
+    teacherShuffle.forEach((opt,idx)=>{
+      let div=document.createElement("div");
+      div.className="opt "+["red","blue","yellow","green"][idx];
+      div.innerText=opt.text;
+      optBox.appendChild(div);
     });
+  } else {
+    optBox.innerHTML="<em>Câu hỏi điền vào ô trống</em>";
   }
 
-  // publish question to DB WITHOUT correct info (NEW)
-  const startAt = Date.now();
-  const publishQ = { text: q.text, options: q.options || null, type: q.type || 'mc', time: q.time || 30, startAt: startAt };
-  db.ref("rooms/"+roomId+"/current").set({ q: publishQ, status: "open", timeLeft: q.time || 30, startAt: startAt, answers: {} });
-
-  // teacher countdown and update db timeLeft (NEW)
-  let t = q.time || 30;
-  updateTime(t);
-  if(countdown) clearInterval(countdown);
-  countdown = setInterval(()=>{
-    t--; updateTime(t);
-    db.ref("rooms/"+roomId+"/current/timeLeft").set(t);
-    if(t <= 3) document.getElementById("soundTick").play();
-    if(t <= 0){ clearInterval(countdown); finishQuestion(); }
+  let time=q.time;
+  document.getElementById("timeLeft").innerText=time;
+  clearInterval(countdown);
+  countdown=setInterval(()=>{
+    time--;
+    document.getElementById("timeLeft").innerText=time;
+    if(time<=0){clearInterval(countdown);finishQuestion();}
   },1000);
+
+  document.getElementById("soundStart").play();
 }
 
-function updateTime(t){ document.getElementById("timeLeft").textContent = t; }
-
-// finish question: grade and update scores + ranking (NEW)
-async function finishQuestion(){
-  // guard: if already closed, skip
-  const curSnap = await db.ref("rooms/"+roomId+"/current").get();
-  const curVal = curSnap.val();
-  if(!curVal || curVal.status === "closed") return;
+// Shuffle mảng
+function shuffleArray(arr){
+  let copy=[...arr];
+  for(let i=copy.length-1;i>0;i--){
+    let j=Math.floor(Math.random()*(i+1));
+    [copy[i],copy[j]]=[copy[j],copy[i]];
+  }
+  return copy;
+}
+</script>
+<script>
+function finishQuestion(){
+  clearInterval(countdown);
+  let q=questions[currentIndex];
 
   document.getElementById("questionView").classList.add("hidden");
   document.getElementById("afterView").classList.remove("hidden");
-  document.getElementById("soundEnd").play();
 
-  const answersSnap = await db.ref("rooms/"+roomId+"/current/answers").get();
-  const answers = answersSnap.val() || {};
-  const q = questions[currentIndex];
-  const startAt = (curVal.startAt) || Date.now();
-
-  // grade each answer
-  for(const pid in answers){
-    const a = answers[pid];
-    const timeSubmitted = a.time || Date.now();
-    let timeTakenSec = Math.floor((timeSubmitted - startAt)/1000);
-    if(timeTakenSec < 0) timeTakenSec = 0;
-    const qTime = q.time || 30;
-    let remaining = qTime - timeTakenSec; if(remaining < 0) remaining = 0;
-    let scoreToAdd = 0;
-    let isCorrect = false;
-
-    if(q.type === "input"){
-      const given = String(a.answer||"").toLowerCase().trim().replace(/\s+/g,'');
-      const expected = String(q.correctText||"").toLowerCase().trim().replace(/\s+/g,'');
-      const accepted = [expected];
-      if(expected === "khong xac dinh") accepted.push("khôngxácđịnh","undefined");
-      if(accepted.includes(given)) isCorrect = true;
-    } else {
-      // student sends original index; compare with q.correct
-      if(Number(a.answer) === Number(q.correct)) isCorrect = true;
-    }
-
-    if(isCorrect){
-      const base = 500;
-      const bonus = Math.round((remaining / (q.time||30)) * 500);
-      scoreToAdd = base + bonus;
-    } else {
-      scoreToAdd = 0;
-    }
-
-    const ref = db.ref("rooms/"+roomId+"/scores/"+pid);
-    const snap = await ref.get(); const old = snap.val() || 0;
-    await ref.set(old + scoreToAdd);
-  }
-
-  // close question in DB (do NOT publish correct answer) (NEW)
-  await db.ref("rooms/"+roomId+"/current").update({ status: "closed" });
-
-  // update ranking node so students can read their rank (NEW)
-  const snapScores = await db.ref("rooms/"+roomId+"/scores").get();
-  const scores = snapScores.val() || {};
-  const arr = Object.entries(scores).map(([pid,sc])=>({ pid, name: playersCache[pid]?.name || pid, score: sc }));
-  arr.sort((a,b)=>b.score - a.score);
-  await db.ref("rooms/"+roomId+"/ranking").set(arr);
-
-  // teacher highlight correct/wrong in teacherShuffle view (NEW)
-  const box = document.getElementById("optionsBox");
-  if(q.type !== "input"){
-    Array.from(box.children).forEach((el, localIdx)=>{
-      const origIdx = teacherShuffle[localIdx];
-      if(origIdx === q.correct) el.classList.add("correct");
+  // hiển thị đáp án đúng cho giáo viên
+  if(!q.type){
+    let opts=document.querySelectorAll(".opt");
+    opts.forEach((el,idx)=>{
+      let origIdx=teacherShuffle[idx].index;
+      if(origIdx===q.correct) el.classList.add("correct");
       else el.classList.add("wrong");
     });
+  } else {
+    document.getElementById("optionsBox").innerHTML="✅ Đáp án đúng: "+q.correctText;
   }
 
-  // show "End game" button only on last question (NEW)
-  if(currentIndex >= questions.length - 1){
-    document.getElementById("endGameBtn").classList.remove("hidden");
-  } else {
-    document.getElementById("endGameBtn").classList.add("hidden");
-  }
+  document.getElementById("soundEnd").play();
 }
 
-// show top (temporary leaderboard)
-document.getElementById("showTopBtn").onclick = async ()=>{
+// xem bảng xếp hạng
+document.getElementById("showTopBtn").onclick=()=>{
+  showLeaderboard();
+};
+
+document.getElementById("nextQBtn").onclick=()=>{
+  currentIndex++;
+  showQuestion();
+};
+</script>
+<script>
+function showLeaderboard(){
   document.getElementById("afterView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.remove("hidden");
 
-  const snap = await db.ref("rooms/"+roomId+"/scores").get();
-  const scores = snap.val() || {};
-  const arr = Object.entries(scores).map(([pid,sc])=>({ pid, name: playersCache[pid]?.name || pid, score: sc }));
-  arr.sort((a,b)=>b.score - a.score);
-  await db.ref("rooms/"+roomId+"/ranking").set(arr);
+  db.ref("rooms/"+roomId+"/players").once("value",snap=>{
+    let players=[];
+    snap.forEach(s=>players.push(s.val()));
+    players.sort((a,b)=>b.score-a.score);
 
-  let html = "";
-  arr.slice(0,20).forEach((r,i)=>{
-    const star = i < 5 ? " ⭐" : "";
-    let special = "";
-    if(i===0) special = 'class="gold"';
-    else if(i===1) special = 'class="silver"';
-    else if(i===2) special = 'class="bronze"';
-    html += `<div class="row top-row"><div><span class="name-bold">${i+1}. ${r.name}${star}</span></div><div class="score-counter" data-score="${r.score}" ${special}>0</div></div>`;
+    let html="";
+    players.slice(0,20).forEach((p,i)=>{
+      let cls=i==0?"gold":i==1?"silver":i==2?"bronze":"";
+      html+=`<div class="row top-row ${cls}">
+        <span class="name-bold">${i+1}. ${p.name}</span>
+        <span class="score-counter">${p.score}</span>
+      </div>`;
+    });
+    document.getElementById("topList").innerHTML=html;
   });
-  document.getElementById("topList").innerHTML = html;
+}
 
-  // counter-up
-  document.querySelectorAll(".score-counter").forEach(el=>{
-    const final = Number(el.getAttribute("data-score")||0);
-    let cur = 0; const step = Math.max(1, Math.floor(final/30));
-    const it = setInterval(()=>{ cur += step; if(cur >= final){ el.textContent = final; clearInterval(it);} else el.textContent = cur; },20);
-  });
-};
-
-document.getElementById("nextQBtn").onclick = ()=> { nextQuestion(); };
-document.getElementById("continueBtn").onclick = ()=> {
+document.getElementById("continueBtn").onclick=()=>{
   document.getElementById("leaderboardView").classList.add("hidden");
-  // resume to next question (teacher can use Next)
-  // nothing else required; teacher can click Tiếp tục (Next Question) shown earlier
-  // we also show afterView again if needed
-  document.getElementById("afterView").classList.remove("hidden");
+  if(currentIndex>=questions.length-1){
+    endGame();
+  } else {
+    currentIndex++;
+    showQuestion();
+  }
 };
-document.getElementById("endGameBtn").onclick = ()=> { endGame(); };
-
-// export csv
-document.getElementById("exportBtn").onclick = async ()=>{
-  const s = await db.ref("rooms/"+roomId+"/scores").get();
-  const scores = s.val() || {};
-  let csv = "Name,Score\n";
-  Object.entries(scores).forEach(([pid,sc])=>{ csv += `${playersCache[pid]?.name||pid},${sc}\n`; });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="results.csv"; a.click();
-};
-
-// end game
-async function endGame(){
+</script>
+<script>
+function endGame(){
+  document.getElementById("questionView").classList.add("hidden");
+  document.getElementById("afterView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.add("hidden");
   document.getElementById("finalView").classList.remove("hidden");
-  const snap = await db.ref("rooms/"+roomId+"/scores").get();
-  const scores = snap.val() || {};
-  const arr = Object.entries(scores).map(([pid,sc])=>({ pid, name: playersCache[pid]?.name || pid, score: sc }));
-  arr.sort((a,b)=>b.score - a.score);
 
-  let html = ""; arr.forEach((r,i)=>{ html += `<div class="row"><span>${i+1}. ${r.name}</span><span>${r.score}</span></div>`; });
-  document.getElementById("finalRank").innerHTML = html;
+  db.ref("rooms/"+roomId+"/players").once("value",snap=>{
+    let players=[];
+    snap.forEach(s=>players.push(s.val()));
+    players.sort((a,b)=>b.score-a.score);
 
-  const podium=document.getElementById("podiumBox"); podium.innerHTML="";
-  if(arr[1]) podium.innerHTML+=`<div class="second">${arr[1].name}<br/>${arr[1].score}</div>`;
-  if(arr[0]) podium.innerHTML+=`<div class="first">${arr[0].name}<br/>${arr[0].score}</div>`;
-  if(arr[2]) podium.innerHTML+=`<div class="third">${arr[2].name}<br/>${arr[2].score}</div>`;
+    let podium=document.getElementById("podiumBox");
+    podium.innerHTML="";
+    ["second","first","third"].forEach((pos,idx)=>{
+      let p=players[idx];
+      if(p){
+        let div=document.createElement("div");
+        div.className=pos;
+        div.innerHTML=`<h3>${idx+1}. ${p.name}</h3><p>${p.score}</p>`;
+        podium.appendChild(div);
+      }
+    });
+  });
 
-  // remove room after short delay (cleanup)
-  setTimeout(async ()=>{ try{ await db.ref("rooms/"+roomId).remove(); console.log("Room removed:", roomId); }catch(e){console.warn(e);} }, 5000);
-  try{document.getElementById("bgMusic").pause();document.getElementById("bgMusic").currentTime=0;}catch(e){}
+  db.ref("rooms/"+roomId).remove(); // xóa phòng
 }
+
+document.getElementById("exportBtn").onclick=()=>{
+  db.ref("rooms/"+roomId+"/players").once("value",snap=>{
+    let csv="Name,Score\n";
+    snap.forEach(s=>{let p=s.val();csv+=`${p.name},${p.score}\n`;});
+    let blob=new Blob([csv],{type:"text/csv"});
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="scores.csv";
+    a.click();
+  });
+};
 </script>
 </body>
 </html>
