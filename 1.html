@@ -192,13 +192,21 @@ function updatePlayersList(players){
 <script>
 // ====== Bắt đầu game ======
 document.getElementById("startBtn").onclick=()=>{
-  db.ref("rooms/"+roomId).update({status:"playing"});
-  currentIndex=0;
+  if(!roomId) return; // chưa có phòng thì không chạy
+  currentIndex = 0;
+  // ghi trạng thái phòng
+  db.ref("rooms/"+roomId).update({
+    status: "playing",
+    currentIndex: currentIndex
+  });
   showQuestion();
-  document.getElementById("bgMusic").play();
+  try {
+    document.getElementById("bgMusic").play();
+  } catch(e) {}
 };
 
 // ====== Hiển thị câu hỏi ======
+
 function showQuestion(){
   if(currentIndex>=questions.length){
     endGame();
