@@ -207,12 +207,13 @@ function showQuestion(){
   let q=questions[currentIndex];
   teacherShuffle=shuffleArray(q.options.map((o,i)=>({text:o,index:i})));
 
+  // 🔹 gửi dữ liệu xuống nhánh /current thay vì gốc
   db.ref("rooms/"+roomId+"/current").set({
-  q: q,
-  teacherShuffle: teacherShuffle,
-  startAt: Date.now(),
-  status: "playing"
-});
+    q: q,
+    teacherShuffle: teacherShuffle,
+    startAt: Date.now(),
+    status: "playing"
+  });
 
   document.getElementById("waitingView").classList.add("hidden");
   document.getElementById("afterView").classList.add("hidden");
@@ -246,17 +247,6 @@ function showQuestion(){
   document.getElementById("soundStart").play();
 }
 
-// Shuffle mảng
-function shuffleArray(arr){
-  let copy=[...arr];
-  for(let i=copy.length-1;i>0;i--){
-    let j=Math.floor(Math.random()*(i+1));
-    [copy[i],copy[j]]=[copy[j],copy[i]];
-  }
-  return copy;
-}
-</script>
-<script>
 function finishQuestion(){
   clearInterval(countdown);
   let q=questions[currentIndex];
@@ -264,7 +254,7 @@ function finishQuestion(){
   document.getElementById("questionView").classList.add("hidden");
   document.getElementById("afterView").classList.remove("hidden");
 
-    // hiển thị đáp án đúng cho giáo viên
+  // hiển thị đáp án đúng cho giáo viên
   if(!q.type){
     let opts=document.querySelectorAll(".opt");
     opts.forEach((el,idx)=>{
@@ -281,6 +271,7 @@ function finishQuestion(){
   // 🔹 cập nhật trạng thái sang "closed" để học sinh bắt được
   db.ref("rooms/"+roomId+"/current/status").set("closed");
 }
+
 
 // xem bảng xếp hạng
 
