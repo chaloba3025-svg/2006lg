@@ -1,20 +1,23 @@
 <!doctype html>
-<html>
+<html lang="vi">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Kahoot-like — Student</title>
 <style>
-  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#fff;margin:0}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#0b1020;color:#fff}
   .wrap{max-width:720px;margin:18px auto;padding:12px}
   .card{background:#1e293b;padding:18px;border-radius:14px}
   input,button{padding:12px;border-radius:10px;border:none;font-size:15px}
   button{background:#2563eb;color:#fff;cursor:pointer}
-  .timer{font-weight:800;font-size:20px;margin-bottom:10px;color:#fef08a}
-  .question{font-size:20px;font-weight:800;margin-bottom:14px}
+  .timer{font-weight:800;font-size:24px;margin-bottom:10px;color:#fef08a;transition:.3s}
+  .question{font-size:20px;font-weight:800;margin-bottom:14px;text-align:center}
   .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:20px;border-radius:14px;font-weight:800;text-align:center;cursor:pointer}
+  .opt{padding:30px;border-radius:14px;font-weight:800;text-align:center;cursor:pointer;transition:.2s;user-select:none}
+  .opt:hover{transform:scale(1.05)}
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
+  .popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:800;animation:pop 1s ease-out forwards;pointer-events:none}
+  @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(.5)}}
 </style>
 </head>
 <body>
@@ -29,9 +32,16 @@
     <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
     <div class="question" id="qText">Chờ...</div>
     <div id="opts" class="opts"></div>
-    <div style="margin-top:10px">Điểm: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span></div>
+    <div style="margin-top:10px;text-align:center">
+      Điểm: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span>
+    </div>
   </div>
 </div>
+
+<!-- Sounds -->
+<audio id="clickSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="correctSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="wrongSound" src="https://actions.google.com/sounds/v1/cartoon/metal_thud_and_clang.ogg"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -46,8 +56,9 @@ const db=firebase.database();
 
 let roomId=null,playerId="p"+Math.floor(Math.random()*1e6),playerName="";
 document.getElementById("joinBtn").onclick=async()=>{
-  playerName=document.getElementById("nameInput").value;
-  roomId=document.getElementById("roomInput").value;
+  playerName=document.getElementById("nameInput").value.trim();
+  roomId=document.getElementById("roomInput").value.trim();
+  if(!playerName||!roomId)return;
   await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName});
   document.getElementById("joinCard").style.display="none";
   document.getElementById("playCard").style.display="block";
@@ -58,21 +69,50 @@ function listenQ(){
   db.ref("rooms/"+roomId+"/current").on("value",snap=>{
     const cur=snap.val();if(!cur)return;
     document.getElementById("timeLeft").textContent=cur.timeLeft||0;
+    if(cur.timeLeft<=3)document.querySelector(".timer").style.color="red";else document.querySelector(".timer").style.color="#fef08a";
     if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}
   });
 }
+
 function showQ(q){
   document.getElementById("qText").textContent=q.text;
   const box=document.getElementById("opts");box.innerHTML="";
   const colors=["red","blue","yellow","green"];
+  // shuffle riêng mỗi học sinh
   const opts=(q.options||[]).map((txt,i)=>({txt,i}));
   for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
-  opts.forEach((o,k)=>{const d=document.createElement("div");d.className="opt "+colors[k%4];d.textContent=String.fromCharCode(65+k)+". "+o.txt;d.onclick=()=>submitAnswer(o.i);box.appendChild(d);});
+  opts.forEach((o,k)=>{
+    const d=document.createElement("div");
+    d.className="opt "+colors[k%4];
+    d.textContent=String.fromCharCode(65+k)+". "+o.txt;
+    d.onclick=()=>submitAnswer(o.i);
+    box.appendChild(d);
+  });
 }
-async function submitAnswer(ans){await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";}
+
+async function submitAnswer(ans){
+  try{document.getElementById("clickSound").play();}catch(e){}
+  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});
+  document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";
+}
+
+// Lắng nghe điểm & hạng
 function listenRank(){
-  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{document.getElementById("myScore").textContent=s.val()||0;});
-  db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{const arr=snap.val()||[];let rank="-";arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});document.getElementById("myRank").textContent=rank;});
+  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{
+    const old=parseInt(document.getElementById("myScore").textContent)||0;
+    const val=s.val()||0;document.getElementById("myScore").textContent=val;
+    if(val>old)showPopup("+"+(val-old));
+  });
+  db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{
+    const arr=snap.val()||[];let rank="-";
+    arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
+    document.getElementById("myRank").textContent=rank;
+  });
+}
+
+function showPopup(txt){
+  const p=document.createElement("div");p.className="popup";p.textContent=txt;
+  document.body.appendChild(p);setTimeout(()=>p.remove(),1000);
 }
 </script>
 </body>
