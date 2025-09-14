@@ -18,6 +18,12 @@
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
   .popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:800;animation:pop 1s ease-out forwards;pointer-events:none}
   @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(.5)}}
+  .status{margin-bottom:8px;font-weight:700}
+  .correct{outline:4px solid #10b981}
+  .wrong{opacity:.4}
+  .muted{opacity:.5}
+  .input-answer{display:flex;gap:8px}
+  .input-answer input{flex:1;padding:8px;border-radius:8px;border:none}
 </style>
 </head>
 <body>
@@ -29,6 +35,7 @@
   </div>
 
   <div class="card" id="playCard" style="display:none;margin-top:14px">
+    <div class="status" id="statusText">⏳ Đang chờ giáo viên bắt đầu…</div>
     <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
     <div class="question" id="qText">Chờ...</div>
     <div id="opts" class="opts"></div>
@@ -42,6 +49,7 @@
 <audio id="clickSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
 <audio id="correctSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 <audio id="wrongSound" src="https://actions.google.com/sounds/v1/cartoon/metal_thud_and_clang.ogg"></audio>
+<audio id="bgMusic" src="https://actions.google.com/sounds/v1/ambiences/office.ogg" loop></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -62,41 +70,170 @@ document.getElementById("joinBtn").onclick=async()=>{
   await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName});
   document.getElementById("joinCard").style.display="none";
   document.getElementById("playCard").style.display="block";
-  listenQ();listenRank();
+  listenRoom();
+  listenRank();
 };
 
-function listenQ(){
+let currentQ=null,hasAnswered=false;
+
+// listen room changes (current question / status)
+function listenRoom(){
   db.ref("rooms/"+roomId+"/current").on("value",snap=>{
-    const cur=snap.val();if(!cur)return;
-    document.getElementById("timeLeft").textContent=cur.timeLeft||0;
-    if(cur.timeLeft<=3)document.querySelector(".timer").style.color="red";else document.querySelector(".timer").style.color="#fef08a";
-    if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}
+    const cur=snap.val();
+    if(!cur){
+      setStatus("⏳ Đang chờ giáo viên tạo phòng hoặc phòng đã kết thúc");
+      document.getElementById("opts").innerHTML="";
+      return;
+    }
+    // status handling
+    if(cur.status==="open"){
+      showQ(cur.q);
+      hasAnswered = Boolean(cur.answers && cur.answers[playerId]);
+      setStatus(hasAnswered ? "⏳ Bạn đã trả lời" : "⏳ Trả lời ngay!");
+      // time left
+      document.getElementById("timeLeft").textContent = cur.timeLeft || cur.q.time || 0;
+      // play bgMusic when open
+      try{document.getElementById("bgMusic").play();}catch(e){}
+    } else if(cur.status==="closed"){
+      // show correct/wrong highlight
+      revealAnswer(cur);
+      setStatus("⏺️ Câu đã kết thúc — đáp án hiển thị");
+      // stop bg music
+      try{document.getElementById("bgMusic").pause();document.getElementById("bgMusic").currentTime=0;}catch(e){}
+    }
+    // update timer if teacher updates timeLeft
+    if(cur.timeLeft!==undefined) document.getElementById("timeLeft").textContent = cur.timeLeft;
+  });
+
+  // cleanup if room removed
+  db.ref("rooms/"+roomId).on("value",snap=>{
+    if(!snap.val()){
+      setStatus("Phòng đã được xoá (Game kết thúc).");
+      document.getElementById("opts").innerHTML="";
+      try{document.getElementById("bgMusic").pause();}catch(e){}
+    }
   });
 }
 
+function setStatus(txt){document.getElementById("statusText").textContent = txt;}
+
+// render question for student
 function showQ(q){
-  document.getElementById("qText").textContent=q.text;
+  currentQ = q;
+  hasAnswered=false;
+  document.getElementById("qText").textContent = q.text;
   const box=document.getElementById("opts");box.innerHTML="";
-  const colors=["red","blue","yellow","green"];
-  // shuffle riêng mỗi học sinh
-  const opts=(q.options||[]).map((txt,i)=>({txt,i}));
-  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
-  opts.forEach((o,k)=>{
-    const d=document.createElement("div");
-    d.className="opt "+colors[k%4];
-    d.textContent=String.fromCharCode(65+k)+". "+o.txt;
-    d.onclick=()=>submitAnswer(o.i);
-    box.appendChild(d);
-  });
+  if(q.type==="input"){
+    const wrapper = document.createElement("div"); wrapper.className="input-answer";
+    const inp = document.createElement("input"); inp.placeholder="Nhập đáp án (vd: pi/6 hoặc can(2)...)";
+    const btn = document.createElement("button"); btn.textContent="Submit";
+    btn.onclick = ()=>{ submitInput(inp.value); };
+    wrapper.appendChild(inp); wrapper.appendChild(btn); box.appendChild(wrapper);
+  } else {
+    const colors=["red","blue","yellow","green"];
+    // if options provided shuffled on teacher but teacher stored original options in q.options; we'll render them in the same order teacher sent
+    const opts = q.options || [];
+    for(let k=0;k<opts.length;k++){
+      const d=document.createElement("div");
+      d.className="opt "+colors[k%4];
+      d.textContent=String.fromCharCode(65+k)+". "+opts[k];
+      d.onclick = ()=>{ submitAnswer(k); };
+      box.appendChild(d);
+    }
+  }
 }
 
-async function submitAnswer(ans){
+// submit for MC
+async function submitAnswer(ansIndex){
+  if(hasAnswered) return;
   try{document.getElementById("clickSound").play();}catch(e){}
-  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});
-  document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";
+  // save answer and timestamp; also store remaining time for convenience
+  const now = Date.now();
+  const timeLeft = Number(document.getElementById("timeLeft").textContent) || 0;
+  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ansIndex,time:now,remaining:timeLeft});
+  hasAnswered=true;
+  lockUIAfterAnswer(ansIndex);
+  // popup placeholder until teacher closes
 }
 
-// Lắng nghe điểm & hạng
+// submit for input
+async function submitInput(text){
+  if(hasAnswered) return;
+  const val = String(text||"").trim();
+  if(!val) return;
+  const now = Date.now();
+  const timeLeft = Number(document.getElementById("timeLeft").textContent) || 0;
+  // normalize submission: user is expected to use 'pi' and 'can(2)' as requested
+  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:val,time:now,remaining:timeLeft});
+  hasAnswered=true;
+  lockUIAfterAnswer(null);
+}
+
+// disable options after answering and show local indicator
+function lockUIAfterAnswer(chosenIndex){
+  const box=document.getElementById("opts");
+  Array.from(box.children).forEach((el,i)=>{
+    el.classList.add("muted");
+    el.onclick = null;
+  });
+  const notice = document.createElement("div"); notice.style.marginTop="8px"; notice.textContent="Bạn đã trả lời ✅";
+  box.appendChild(notice);
+  try{document.getElementById("clickSound").play();}catch(e){}
+}
+
+// reveal correct/wrong when teacher closes
+function revealAnswer(cur){
+  const box=document.getElementById("opts");
+  // if question type input show correct text and compare student's answer
+  if(cur.q.type==="input"){
+    // show correct text
+    box.innerHTML="";
+    const correctText = cur.correctText || cur.q.correctText || "";
+    const p=document.createElement("div"); p.style.padding="14px"; p.style.borderRadius="8px"; p.style.background="#06202a";
+    p.innerHTML = `<strong>Đáp án đúng:</strong> ${correctText} <br/><small>(học sinh nhập: pi cho π, can(2) cho √2)</small>`;
+    box.appendChild(p);
+
+    // show whether this student was correct
+    db.ref("rooms/"+roomId+"/current/answers/"+playerId).get().then(snap=>{
+      const a=snap.val();
+      const given=(a && String(a.answer||"")).toLowerCase().trim().replace(/\s+/g,'');
+      const expected=(String(correctText||"")).toLowerCase().trim().replace(/\s+/g,'');
+      const accepted=[expected];
+      if(expected==="khong xac dinh") accepted.push("khôngxácđịnh","undefined");
+      const ok = accepted.includes(given);
+      showPopup(ok ? "✅" : "❌");
+      try{ if(ok) document.getElementById("correctSound").play(); else document.getElementById("wrongSound").play(); }catch(e){}
+    });
+  } else {
+    // mark options: find which option equals correctIndex value
+    const corr = cur.correctIndex;
+    // mark each option element
+    Array.from(box.children).forEach((el,i)=>{
+      // el.textContent shows "A. option" - we need to compare by index position
+      if(i===corr){
+        el.classList.add("correct");
+      } else {
+        el.classList.add("wrong");
+      }
+    });
+
+    // show popup for this student depending on their answer
+    db.ref("rooms/"+roomId+"/current/answers/"+playerId).get().then(snap=>{
+      const a=snap.val();
+      const ok = a && Number(a.answer)===Number(corr);
+      showPopup(ok ? "✅" : "❌");
+      try{ if(ok) document.getElementById("correctSound").play(); else document.getElementById("wrongSound").play(); }catch(e){}
+    });
+  }
+}
+
+// popup small feedback
+function showPopup(txt){
+  const p=document.createElement("div");p.className="popup";p.textContent=txt;
+  document.body.appendChild(p);setTimeout(()=>p.remove(),1000);
+}
+
+// listen rank & score updates
 function listenRank(){
   db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{
     const old=parseInt(document.getElementById("myScore").textContent)||0;
@@ -108,11 +245,6 @@ function listenRank(){
     arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
     document.getElementById("myRank").textContent=rank;
   });
-}
-
-function showPopup(txt){
-  const p=document.createElement("div");p.className="popup";p.textContent=txt;
-  document.body.appendChild(p);setTimeout(()=>p.remove(),1000);
 }
 </script>
 </body>
