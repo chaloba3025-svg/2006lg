@@ -1,53 +1,68 @@
 <!doctype html>
-<html>
+<html lang="vi">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kahoot-like — Teacher</title>
 <style>
-  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#f3f6fb;color:#111;margin:0}
-  header{background:#2563eb;color:#fff;padding:12px;text-align:center}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f3f6fb;color:#111}
+  header{background:#2563eb;color:#fff;padding:14px;text-align:center;font-size:20px;font-weight:700}
   .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
   .controls{text-align:center;margin-bottom:14px}
   input,button{padding:10px;border-radius:8px;border:1px solid #cbd5e1;font-size:15px}
   button{background:#2563eb;color:#fff;border:none;cursor:pointer}
   button:disabled{background:#cbd5e1;color:#6b7280;cursor:not-allowed}
-  .stage{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.06);min-height:220px}
-  .timer{font-size:22px;font-weight:800;margin-bottom:10px}
-  .question{font-size:22px;font-weight:800;margin-bottom:14px}
+  .stage{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.08);min-height:220px}
+  .timer{font-size:26px;font-weight:800;margin-bottom:10px}
+  .question{font-size:24px;font-weight:800;margin-bottom:14px}
   .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center}
+  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center;transition:all .3s}
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
-  .opt.correct{outline:4px solid #10b981}
-  .opt.wrong{opacity:.45}
-  .card{flex:1;background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(2,6,23,0.06)}
+  .opt.correct{outline:5px solid #10b981}
+  .opt.wrong{opacity:.4}
+  .card{flex:1;background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(2,6,23,0.06);margin-top:14px}
   .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid #f1f5f9}
   .hidden{display:none}
+  .big{font-size:30px;font-weight:800}
+  .podium{display:flex;justify-content:center;align-items:flex-end;gap:20px;margin-top:20px}
+  .podium div{background:#2563eb;color:#fff;width:120px;text-align:center;border-radius:12px;padding:10px;transition:all .6s}
+  .first{height:200px}.second{height:160px;background:#94a3b8}.third{height:140px;background:#f97316}
 </style>
 </head>
 <body>
-<header><h2>Kahoot-like — Teacher</h2></header>
+<header>Kahoot-like — Teacher</header>
 <div class="wrap">
   <div class="controls" id="controlsArea">
     <button id="createRoom">Create Room</button>
-    <button id="startBtn" disabled>Start</button>
+    <button id="startBtn" disabled>START</button>
     <div id="roomInfo" style="margin-top:8px;font-weight:bold"></div>
   </div>
 
   <div id="stage" class="stage">
-    <div id="questionView">
+    <div id="waitingView">⏳ Waiting for players...</div>
+
+    <div id="questionView" class="hidden">
       <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
-      <div class="question" id="qText">Chưa có câu hỏi</div>
+      <div class="question" id="qText">Câu hỏi</div>
       <div class="options" id="optionsBox"></div>
-      <div id="afterBox" style="margin-top:14px;display:none">
-        <button id="showTopBtn">SHOW TOP 20</button>
-      </div>
+    </div>
+
+    <div id="afterView" class="hidden" style="text-align:center">
+      <h3>✅ Đáp án đúng đã hiển thị</h3>
+      <button id="showTopBtn">Xem bảng xếp hạng</button>
     </div>
 
     <div id="leaderboardView" class="hidden">
-      <h3>Top 20</h3>
+      <h3>Bảng xếp hạng Top 20</h3>
       <div id="topList"></div>
       <button id="nextQBtn">Next Question</button>
+    </div>
+
+    <div id="finalView" class="hidden">
+      <h2>Kết thúc trò chơi 🎉</h2>
+      <div id="finalRank"></div>
+      <div class="podium" id="podiumBox"></div>
+      <button onclick="exportCSV()">Export CSV</button>
     </div>
   </div>
 
@@ -56,6 +71,14 @@
     <div id="playersList">-</div>
   </div>
 </div>
+
+<!-- Sounds -->
+<audio id="soundStart" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum.ogg"></audio>
+<audio id="soundEnd" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="soundTick" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+<audio id="soundCorrect" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="soundWrong" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="soundBg" src="https://actions.google.com/sounds/v1/ambiences/office.ogg" loop></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -69,67 +92,74 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 let roomId=null,currentIndex=-1,countdown=null,playersCache={};
+
 const questions=[
   {text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:15},
   {text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:15},
-  {text:"60° = ?",options:["π/3","π/2","2π/3","π/4"],correct:0,time:15}
+  {text:"60° = ?",options:["π/3","π/2","2π/3","π/4"],correct:0,time:15},
+  // TODO: bổ sung đủ 28 câu như file .rtf/.json bạn gửi
 ];
 
-// Gen room ID ngắn (A + số 2 chữ số)
-function genRoom(){
-  const n=Math.floor(Math.random()*90)+10;
-  return "A"+n;
-}
+// Sinh mã phòng ngắn Axx
+function genRoom(){const n=Math.floor(Math.random()*90)+10;return "A"+n;}
 
-// Tạo room
 document.getElementById("createRoom").onclick=async()=>{
   roomId=genRoom();
   await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{}});
   document.getElementById("roomInfo").textContent="Room: "+roomId;
   document.getElementById("startBtn").disabled=false;
   db.ref("rooms/"+roomId+"/players").on("value",s=>{
-    playersCache=s.val()||{};
-    renderPlayersList();
+    playersCache=s.val()||{};renderPlayersList();
   });
 };
 
-// Start
-document.getElementById("startBtn").onclick=()=>{currentIndex=0;sendQ();}
+document.getElementById("startBtn").onclick=()=>{
+  document.getElementById("playersCard").classList.add("hidden");
+  currentIndex=0;sendQ();
+};
 
-// Gửi câu hỏi
 async function sendQ(){
   const q=questions[currentIndex];
-  // shuffle trước khi gửi
-  const indices=[0,1,2,3]; for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
+  const indices=[0,1,2,3];for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
   const shuffled=indices.map(i=>q.options[i]);
   const newCorrect=indices.indexOf(q.correct);
   const qobj={...q,options:shuffled,correct:newCorrect};
-  await db.ref("rooms/"+roomId+"/current").set({index:currentIndex,q:qobj,status:"open",startedAt:Date.now(),answers:{}});
+  await db.ref("rooms/"+roomId+"/current").set({index:currentIndex,q:qobj,status:"open",timeLeft:q.time,answers:{}});
   renderQTeacher(qobj);
   startTimer(qobj.time||15);
+  try{document.getElementById("soundStart").play();}catch(e){}
   db.ref("rooms/"+roomId+"/current/answers").off();
   db.ref("rooms/"+roomId+"/current/answers").on("value",async snap=>{
-    const ans=snap.val()||{};if(Object.keys(ans).length>=Object.keys(playersCache).length&&Object.keys(playersCache).length>0){
-      clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();
+    const ans=snap.val()||{};
+    if(Object.keys(ans).length>=Object.keys(playersCache).length&&Object.keys(playersCache).length>0){
+      clearInterval(countdown);
+      await db.ref("rooms/"+roomId+"/current").update({status:"closed"});
+      score();
     }
   });
 }
 
-// render Q
 function renderQTeacher(q){
+  document.getElementById("waitingView").classList.add("hidden");
+  document.getElementById("afterView").classList.add("hidden");
+  document.getElementById("leaderboardView").classList.add("hidden");
+  document.getElementById("questionView").classList.remove("hidden");
   document.getElementById("qText").textContent=q.text;
   const box=document.getElementById("optionsBox");box.innerHTML="";
   ["red","blue","yellow","green"].forEach((c,i)=>{if(q.options[i]){const d=document.createElement("div");d.className="opt "+c;d.textContent=q.options[i];box.appendChild(d);}});
-  document.getElementById("afterBox").style.display="none";
-  document.getElementById("leaderboardView").classList.add("hidden");
-  document.getElementById("questionView").classList.remove("hidden");
 }
 
-// timer
-function startTimer(sec){clearInterval(countdown);let t=sec;document.getElementById("timeLeft").textContent=t;
-countdown=setInterval(async()=>{t--;document.getElementById("timeLeft").textContent=t;if(t<=0){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();}},1000);}
+function startTimer(sec){
+  clearInterval(countdown);let t=sec;
+  document.getElementById("timeLeft").textContent=t;
+  countdown=setInterval(async()=>{
+    t--;document.getElementById("timeLeft").textContent=t;
+    await db.ref("rooms/"+roomId+"/current").update({timeLeft:t});
+    if(t<=3&&t>0)try{document.getElementById("soundTick").play();}catch(e){}
+    if(t<=0){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();try{document.getElementById("soundEnd").play();}catch(e){}}
+  },1000);
+}
 
-// score
 async function score(){
   const cur=(await db.ref("rooms/"+roomId+"/current").get()).val();if(!cur)return;
   const ans=(await db.ref("rooms/"+roomId+"/current/answers").get()).val()||{};
@@ -140,26 +170,63 @@ async function score(){
   await db.ref("rooms/"+roomId+"/scores").set(scores);
   await db.ref("rooms/"+roomId+"/ranking").set(Object.keys(scores).map(pid=>({pid,name:playersCache[pid]?.name||pid,score:scores[pid]})).sort((a,b)=>b.score-a.score).slice(0,20));
   highlightCorrect(cur.q);
-  document.getElementById("afterBox").style.display="block";
+  document.getElementById("afterView").classList.remove("hidden");
 }
 
-// highlight
 function highlightCorrect(q){
   const opts=document.querySelectorAll("#optionsBox .opt");
   opts.forEach((el,i)=>{el.classList.remove("correct","wrong");if(i==q.correct)el.classList.add("correct");else el.classList.add("wrong");});
 }
 
-// Show top
 document.getElementById("showTopBtn").onclick=()=>showLeaderboard();
 function showLeaderboard(){
   document.getElementById("questionView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.remove("hidden");
   db.ref("rooms/"+roomId+"/ranking").once("value").then(snap=>{
-    const arr=snap.val()||[];const el=document.getElementById("topList");el.innerHTML="";arr.forEach((r,i)=>{el.innerHTML+=`<div class="row">${i+1}. ${r.name} <b>${r.score}</b></div>`;});
+    const arr=snap.val()||[];const el=document.getElementById("topList");el.innerHTML="";
+    arr.forEach((r,i)=>{const row=document.createElement("div");row.className="row";row.innerHTML=`${i+1}. ${r.name} <b>${r.score}</b>`;el.appendChild(row);});
   });
 }
-document.getElementById("nextQBtn").onclick=()=>{currentIndex++;if(currentIndex>=questions.length){alert("Hết câu hỏi");return;}sendQ();}
-function renderPlayersList(){const el=document.getElementById("playersList");el.innerHTML="";const players=playersCache||{};const keys=Object.keys(players);if(keys.length===0){el.innerHTML="<div class='small'>Chưa có người chơi</div>";return;}keys.forEach(pid=>{const name=players[pid].name||pid;el.innerHTML+=`<div class="row">${name}</div>`;});}
+
+document.getElementById("nextQBtn").onclick=()=>{
+  currentIndex++;
+  if(currentIndex>=questions.length){endGame();return;}
+  sendQ();
+}
+
+function endGame(){
+  document.getElementById("leaderboardView").classList.add("hidden");
+  document.getElementById("finalView").classList.remove("hidden");
+  db.ref("rooms/"+roomId+"/scores").once("value").then(snap=>{
+    const scores=snap.val()||{};const arr=Object.keys(scores).map(pid=>({pid,name:playersCache[pid]?.name||pid,score:scores[pid]})).sort((a,b)=>b.score-a.score);
+    const final=document.getElementById("finalRank");final.innerHTML="";
+    arr.forEach((r,i)=>{final.innerHTML+=`<div class="row">${i+1}. ${r.name} — <b>${r.score}</b></div>`;});
+    renderPodium(arr);
+  });
+}
+
+function renderPodium(arr){
+  const box=document.getElementById("podiumBox");box.innerHTML="";
+  if(arr[1])box.innerHTML+=`<div class="second">${arr[1].name}<br>${arr[1].score}</div>`;
+  if(arr[0])box.innerHTML+=`<div class="first">${arr[0].name}<br>${arr[0].score}</div>`;
+  if(arr[2])box.innerHTML+=`<div class="third">${arr[2].name}<br>${arr[2].score}</div>`;
+}
+
+function exportCSV(){
+  db.ref("rooms/"+roomId+"/scores").once("value").then(snap=>{
+    const scores=snap.val()||{};let csv="Player,Score\n";
+    for(const pid in scores){const name=playersCache[pid]?.name||pid;csv+=`"${name}",${scores[pid]}\n`;}
+    const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="scores.csv";a.click();URL.revokeObjectURL(url);
+  });
+}
+
+function renderPlayersList(){
+  const el=document.getElementById("playersList");el.innerHTML="";
+  const players=playersCache||{};const keys=Object.keys(players);
+  if(keys.length===0){el.innerHTML="<div class='small'>Chưa có người chơi</div>";return;}
+  keys.forEach(pid=>{const name=players[pid].name||pid;el.innerHTML+=`<div class="row">${name}</div>`;});
+}
 </script>
 </body>
 </html>
