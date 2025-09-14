@@ -168,6 +168,11 @@ document.getElementById("createRoom").onclick=()=>{
   db.ref("rooms/"+roomId).set({status:"waiting",players:{},currentIndex:-1});
   document.getElementById("roomInfo").innerText="Room ID: "+roomId;
   document.getElementById("startBtn").disabled=false;
+
+  // ✅ Lắng nghe danh sách players khi có thay đổi
+  db.ref("rooms/"+roomId+"/players").on("value", snap=>{
+    updatePlayersList(snap.val()||{});
+  });
 };
 
 db.ref("rooms").on("child_removed",snap=>{
@@ -182,6 +187,7 @@ function updatePlayersList(players){
   }
   document.getElementById("playersList").innerHTML=html||"-";
 }
+
 </script>
 <script>
 // ====== Bắt đầu game ======
