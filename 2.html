@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Quiz — Student</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:12px}
+  #joinBox{margin-bottom:20px}
+  #questionBox{border:1px solid #ccc;padding:12px;margin-top:12px;border-radius:8px;min-height:120px;display:none}
+  .options{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .option{padding:10px;border-radius:8px;flex:1;min-width:120px;text-align:center;border:1px solid #aaa;cursor:pointer}
+  .option:hover{background:#eef}
+  #status{margin-top:12px;font-weight:700}
+</style>
+</head>
+<body>
+<h2>Student panel</h2>
+
+<div id="joinBox">
+  <input id="nameInput" placeholder="Tên của bạn" />
+  <input id="roomInput" placeholder="Mã phòng (VD: A1-123456)" />
+  <button id="joinBtn">Join Room</button>
+</div>
+
+<div id="questionBox">
+  <div>Question <span id="qIndex"></span> / <span id="qTotal"></span></div>
+  <div id="qText" style="margin-top:8px;font-size:18px"></div>
+  <div class="options" id="optionsBox"></div>
+</div>
+
+<div id="status"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* Firebase config (giống teacher.html) */
+const firebaseConfig = {
+  apiKey: "AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
+  authDomain: "kahoot-like-5251e.firebaseapp.com",
+  databaseURL: "https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kahoot-like-5251e",
+  storageBucket: "kahoot-like-5251e.appspot.com",
+  messagingSenderId: "805207333072",
+  appId: "1:805207333072:web:63d23d41b05fa6bd71e6d5",
+  measurementId: "G-R81TFGX355"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* State */
+let roomId=null;
+let playerId=null;
+let playerName=null;
+
+/* Join Room */
+document.getElementById("joinBtn").onclick=async()=>{
+  playerName=document.getElementById("nameInput").value.trim();
+  roomId=document.getElementById("roomInput").value.trim();
+  if(!playerName||!roomId){alert("Nhập tên và mã phòng!");return;}
+
+  playerId="P"+Math.floor(Math.random()*1000000);
+  await db.ref("rooms/"+roomId+"/players/"+playerId).set({
+    name:playerName,joinedAt:Date.now()
+  });
+
+  document.getElementById("joinBox").style.display="none";
+  document.getElementById("status").textContent="Đã vào phòng "+roomId+" chờ câu hỏi...";
+  listenQuestion();
+};
+
+/* Lắng nghe câu hỏi */
+function listenQuestion(){
+  db.ref("rooms/"+roomId+"/current").on("value",snap=>{
+    const cur=snap.val();
+    if(!cur){return;}
+    if(cur.status==="open"){
+      showQuestion(cur);
+    }else if(cur.status==="closed"){
+      document.getElementById("status").textContent="Hết thời gian!";
+      document.getElementById("questionBox").style.display="none";
+    }
+  });
+}
+
+/* Hiện câu hỏi */
+function showQuestion(cur){
+  document.getElementById("questionBox").style.display="block";
+  document.getElementById("qIndex").textContent=cur.index+1;
+  document.getElementById("qTotal").textContent="??"; // giáo viên có thể gửi tổng
+  document.getElementById("qText").textContent=cur.q.text;
+  const optsDiv=document.getElementById("optionsBox");
+  optsDiv.innerHTML="";
+  if(cur.q.type==="fill"){
+    const inp=document.createElement("input");
+    inp.placeholder=cur.q.sample||"Nhập đáp án";
+    const btn=document.createElement("button");
+    btn.textContent="Gửi";
+    btn.onclick=()=>submitAnswer(inp.value);
+    optsDiv.appendChild(inp);
+    optsDiv.appendChild(btn);
+  }else{
+    cur.q.options.forEach((o,i)=>{
+      const d=document.createElement("div");
+      d.className="option"; d.textContent=o;
+      d.onclick=()=>submitAnswer(i);
+      optsDiv.appendChild(d);
+    });
+  }
+}
+
+/* Gửi đáp án */
+function submitAnswer(ans){
+  db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({
+    name:playerName,answer:ans,time:Date.now()
+  });
+  document.getElementById("status").textContent="Đã gửi đáp án!";
+  document.getElementById("questionBox").style.display="none";
+}
+</script>
+</body>
+</html>
