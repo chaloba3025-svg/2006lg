@@ -5,453 +5,161 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Kahoot-like — Teacher</title>
 <style>
-  :root{--accent:#2b6cb0}
   body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#f3f6fb;color:#111;margin:0}
-  header{background:var(--accent);color:#fff;padding:12px;text-align:center}
+  header{background:#2563eb;color:#fff;padding:12px;text-align:center}
   .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
   .controls{text-align:center;margin-bottom:14px}
   input,button{padding:10px;border-radius:8px;border:1px solid #cbd5e1;font-size:15px}
-  button{background:var(--accent);color:#fff;border:none;cursor:pointer}
+  button{background:#2563eb;color:#fff;border:none;cursor:pointer}
   button:disabled{background:#cbd5e1;color:#6b7280;cursor:not-allowed}
   .stage{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.06);min-height:220px}
   .timer{font-size:22px;font-weight:800;margin-bottom:10px}
-  .question{font-size:22px;font-weight:800;margin-bottom:14px;animation:fadeIn .45s}
+  .question{font-size:22px;font-weight:800;margin-bottom:14px}
   .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center;cursor:default;user-select:none;animation:zoomIn .35s}
+  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center}
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
-  .opt.correct{box-shadow:0 6px 18px rgba(46,204,182,0.18);outline:4px solid rgba(46,204,182,0.12)}
-  .opt.wrong{opacity:.45;filter:grayscale(0.6)}
-  .small{font-size:13px;color:#64748b}
-  .side{display:flex;gap:12px;margin-top:14px}
+  .opt.correct{outline:4px solid #10b981}
+  .opt.wrong{opacity:.45}
   .card{flex:1;background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(2,6,23,0.06)}
-  #topList .row{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #f1f5f9}
-  #playersList .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px dashed #eef2f7}
-  .centerBtn{display:block;margin:14px auto;padding:10px 18px;border-radius:10px;border:none;background:#10b981;color:#fff;font-weight:700}
-  @keyframes fadeIn{from{opacity:0}to{opacity:1}} @keyframes zoomIn{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
-  .pulse{animation:pulse 1s infinite} @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid #f1f5f9}
   .hidden{display:none}
 </style>
 </head>
 <body>
-<header><h2 style="margin:0">Kahoot-like — Teacher</h2></header>
+<header><h2>Kahoot-like — Teacher</h2></header>
 <div class="wrap">
   <div class="controls" id="controlsArea">
-    <input id="className" placeholder="Prefix lớp" value="A1" />
     <button id="createRoom">Create Room</button>
-    <button id="startBtn" disabled>Start (Play)</button>
-    <button id="forceNext" disabled>Force Next</button>
-    <div id="roomInfo" class="small" style="margin-top:8px"></div>
+    <button id="startBtn" disabled>Start</button>
+    <div id="roomInfo" style="margin-top:8px;font-weight:bold"></div>
   </div>
 
-  <!-- STAGE: question view -->
   <div id="stage" class="stage">
     <div id="questionView">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="small">Câu <span id="qIndex">-</span> / <span id="qTotal">-</span></div>
-          <div class="question" id="qText">Chưa có câu hỏi</div>
-          <div class="small" id="qNote"></div>
-        </div>
-        <div style="text-align:right">
-          <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
-        </div>
-      </div>
-
-      <div class="options" id="optionsBox" style="margin-top:12px"></div>
-
-      <!-- After question ends: show correct + show button to show leaderboard -->
+      <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
+      <div class="question" id="qText">Chưa có câu hỏi</div>
+      <div class="options" id="optionsBox"></div>
       <div id="afterBox" style="margin-top:14px;display:none">
-        <div class="small">Câu đã kết thúc. Hiển thị đáp án đúng.</div>
-        <button id="showTopBtn" class="centerBtn">SHOW TOP 5</button>
+        <button id="showTopBtn">SHOW TOP 20</button>
       </div>
     </div>
 
-    <!-- Leaderboard view (hidden initial) -->
     <div id="leaderboardView" class="hidden">
-      <h3 style="margin-top:0">Top 5</h3>
+      <h3>Top 20</h3>
       <div id="topList"></div>
-      <button id="nextQBtn" class="centerBtn" style="background:#2563eb">Next Question</button>
+      <button id="nextQBtn">Next Question</button>
     </div>
   </div>
 
-  <div class="side">
-    <div class="card" id="playersCard">
-      <h4 style="margin:4px 0">Players</h4>
-      <div id="playersList"><div class="small">Chưa có người chơi</div></div>
-    </div>
-
-    <div class="card" id="topCard">
-      <h4 style="margin:4px 0">Top 5 (mini)</h4>
-      <div id="miniTop">Chưa có điểm</div>
-    </div>
+  <div class="card" id="playersCard">
+    <h4>Players</h4>
+    <div id="playersList">-</div>
   </div>
 </div>
 
-<!-- sounds -->
-<audio id="soundStart" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum.ogg"></audio>
-<audio id="soundEnd" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-/* ========== Firebase config (use your project's values) ========== */
-const firebaseConfig = {
-  apiKey: "AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
-  authDomain: "kahoot-like-5251e.firebaseapp.com",
-  databaseURL: "https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "kahoot-like-5251e",
-  storageBucket: "kahoot-like-5251e.appspot.com",
-  messagingSenderId: "805207333072",
-  appId: "1:805207333072:web:63d23d41b05fa6bd71e6d5"
-};
+const firebaseConfig={apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
+authDomain:"kahoot-like-5251e.firebaseapp.com",
+databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId:"kahoot-like-5251e",storageBucket:"kahoot-like-5251e.appspot.com",
+messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"};
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db=firebase.database();
 
-/* ========== Embedded 28 questions (mcq + fill) ========== */
-const questionBank = [
-  { id:1, type:'mcq', text:"Đổi 90° sang radian là:", options:["π/2","π","2π","π/3"], correct:0, time:30 },
-  { id:2, type:'mcq', text:"Đổi 45° sang radian là:", options:["π/4","π/6","π/3","π/2"], correct:0, time:30 },
-  { id:3, type:'mcq', text:"Đổi 120° sang radian là:", options:["2π/3","π/3","π/6","π/2"], correct:0, time:30 },
-  { id:4, type:'mcq', text:"Đổi 60° sang radian là:", options:["π/3","π/2","2π/3","π/4"], correct:0, time:30 },
-  { id:5, type:'mcq', text:"Đổi 270° sang radian là:", options:["3π/2","2π","π","π/2"], correct:0, time:30 },
-  { id:6, type:'mcq', text:"Góc 315° bằng bao nhiêu radian?", options:["7π/4","5π/6","11π/6","4π/3"], correct:0, time:90 },
-  { id:7, type:'fill', text:"Điền: 210° = ____ rad", answer:"7π/6", time:90 },
-  { id:8, type:'mcq', text:"sin(30°) bằng:", options:["1/2","√3/2","0","1"], correct:0, time:30 },
-  { id:9, type:'mcq', text:"cos(60°) bằng:", options:["1/2","√3/2","0","1"], correct:0, time:30 },
-  { id:10, type:'mcq', text:"tan(45°) bằng:", options:["1","0","√3","1/√3"], correct:0, time:30 },
-  { id:11, type:'mcq', text:"cos(0°) bằng:", options:["1","0","-1","√3/2"], correct:0, time:30 },
-  { id:12, type:'mcq', text:"sin(90°) bằng:", options:["1","0","-1","√2/2"], correct:0, time:30 },
-  { id:13, type:'mcq', text:"Giá trị của tan(60°) là:", options:["√3","1","0","1/√3"], correct:0, time:90 },
-  { id:14, type:'fill', text:"Điền: cos(45°) = ____", answer:"√2/2", time:90 },
-  { id:15, type:'mcq', text:"Cung 2 rad trên bán kính 3 cm có độ dài:", options:["6 cm","3 cm","1.5 cm","9 cm"], correct:0, time:30 },
-  { id:16, type:'mcq', text:"Cung 1 rad trên bán kính 5 cm có độ dài:", options:["5 cm","10 cm","2 cm","1 cm"], correct:0, time:30 },
-  { id:17, type:'mcq', text:"Cung 3 rad trên bán kính 2 cm có độ dài:", options:["6 cm","3 cm","2 cm","1 cm"], correct:0, time:30 },
-  { id:18, type:'mcq', text:"Cung 1.5 rad trên bán kính 4 cm có độ dài:", options:["6 cm","4 cm","3 cm","2 cm"], correct:0, time:30 },
-  { id:19, type:'mcq', text:"Cung 2.5 rad trên bán kính 2 cm có độ dài:", options:["5 cm","4 cm","2.5 cm","1 cm"], correct:0, time:30 },
-  { id:20, type:'mcq', text:"Đường tròn bán kính 7 cm, cung 4 rad → độ dài:", options:["28 cm","21 cm","14 cm","7 cm"], correct:0, time:90 },
-  { id:21, type:'fill', text:"Điền: Cung 3.2 rad, bán kính 6 cm → độ dài = ____ cm", answer:"19.2", time:90 },
-  { id:22, type:'mcq', text:"sin α = đối / huyền là định nghĩa của:", options:["sin","cos","tan","cot"], correct:0, time:30 },
-  { id:23, type:'mcq', text:"cos α = kề / huyền là định nghĩa của:", options:["cos","sin","tan","cot"], correct:0, time:30 },
-  { id:24, type:'mcq', text:"tan α = đối / kề là định nghĩa của:", options:["tan","cos","sin","cot"], correct:0, time:30 },
-  { id:25, type:'mcq', text:"cot α = kề / đối là định nghĩa của:", options:["cot","sin","cos","tan"], correct:0, time:30 },
-  { id:26, type:'mcq', text:"Trong tam giác vuông, cạnh huyền là cạnh:", options:["đối với góc vuông","kề góc vuông","nhỏ nhất","bất kỳ"], correct:0, time:30 },
-  { id:27, type:'mcq', text:"Với góc α bất kỳ, sinα bằng:", options:["tung độ điểm trên đường tròn","hoành độ điểm","bán kính","diện tích cung"], correct:0, time:90 },
-  { id:28, type:'fill', text:"Điền: cosα = ____ của điểm trên đường tròn đơn vị", answer:"hoành độ", time:90 }
+let roomId=null,currentIndex=-1,countdown=null,playersCache={};
+const questions=[
+  {text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:15},
+  {text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:15},
+  {text:"60° = ?",options:["π/3","π/2","2π/3","π/4"],correct:0,time:15}
 ];
 
-/* ========== State ========== */
-let roomId = null;
-let currentIndex = -1;
-let countdown = null;
-let playersCache = {}; // pid-> {name}
-document.getElementById('qTotal').textContent = questionBank.length;
-
-/* ========== Helpers ========== */
-function genRoom(){ return (document.getElementById('className').value||'A') + '-' + Math.floor(100000+Math.random()*900000); }
-function shuffleArray(arr){
-  const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a;
-}
-function normalizeAnswer(s){
-  if(s==null) return '';
-  let t = String(s).toLowerCase().replace(/\s+/g,'').replace(/π/g,'pi').replace(/√/g,'sqrt').replace(/căn/g,'sqrt');
-  t = t.replace(/−/g,'-');
-  return t;
+// Gen room ID ngắn (A + số 2 chữ số)
+function genRoom(){
+  const n=Math.floor(Math.random()*90)+10;
+  return "A"+n;
 }
 
-/* ========== Create room ========== */
-document.getElementById('createRoom').onclick = async ()=>{
-  roomId = genRoom();
-  await db.ref('rooms/'+roomId).set({status:'waiting',players:{},scores:{}});
-  document.getElementById('roomInfo').textContent = 'Room: ' + roomId;
-  document.getElementById('startBtn').disabled = false;
-  // watch players and scores for display (but we will hide them during question)
-  db.ref('rooms/'+roomId+'/players').on('value', snap=>{
-    playersCache = snap.val() || {};
+// Tạo room
+document.getElementById("createRoom").onclick=async()=>{
+  roomId=genRoom();
+  await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{}});
+  document.getElementById("roomInfo").textContent="Room: "+roomId;
+  document.getElementById("startBtn").disabled=false;
+  db.ref("rooms/"+roomId+"/players").on("value",s=>{
+    playersCache=s.val()||{};
     renderPlayersList();
   });
-  db.ref('rooms/'+roomId+'/scores').on('value',snap=>{
-    const s = snap.val()||{};
-    renderMiniTop(s);
-  });
 };
 
-/* render players & mini top */
-function renderPlayersList(){
-  const el = document.getElementById('playersList'); el.innerHTML='';
-  const keys = Object.keys(playersCache||{});
-  if(keys.length===0){ el.innerHTML = '<div class="small">Chưa có người chơi</div>'; return; }
-  keys.forEach(pid => {
-    const name = playersCache[pid].name || pid;
-    el.innerHTML += `<div class="row"><div>${name}</div><div class="small" id="score-${pid}">...</div></div>`;
-  });
-}
-function renderMiniTop(scores){
-  const el = document.getElementById('miniTop'); el.innerHTML='';
-  const arr = Object.keys(scores||{}).map(pid=>({pid,score:scores[pid]})).sort((a,b)=>b.score-a.score).slice(0,5);
-  if(arr.length===0){ el.innerHTML = '<div class="small">Chưa có điểm</div>'; return; }
-  arr.forEach((p,i)=>{ const name = (playersCache[p.pid] && playersCache[p.pid].name) || p.pid; el.innerHTML += `<div class="row">${i+1}. ${name} <strong>${p.score}</strong></div>`; });
-}
+// Start
+document.getElementById("startBtn").onclick=()=>{currentIndex=0;sendQ();}
 
-/* ========== Start quiz (Play) ========== */
-document.getElementById('startBtn').onclick = async ()=>{
-  if(!roomId){ alert('Tạo room trước'); return; }
-  currentIndex = 0;
-  // hide controls & side panels
-  document.getElementById('controlsArea').classList.add('hidden');
-  document.getElementById('playersCard').classList.add('hidden');
-  document.getElementById('topCard').classList.add('hidden');
-  // ensure leaderboard hidden, show question
-  document.getElementById('leaderboardView').classList.add('hidden');
-  document.getElementById('questionView').classList.remove('hidden');
-  // start first question
-  await sendQuestion(currentIndex);
-  // enable forceNext so teacher can skip if needed
-  document.getElementById('forceNext').disabled = false;
-};
-
-/* Force next (manual override) */
-document.getElementById('forceNext').onclick = async ()=>{
-  await closeCurrentAndScore();
-  // show leaderboard after scoring
-  showLeaderboard();
-};
-
-/* ========== sendQuestion: shuffle options and push to DB ========== */
-let answersListenerRef = null;
-async function sendQuestion(idx){
-  if(idx < 0 || idx >= questionBank.length) { alert('Hết câu hỏi'); return; }
-  const base = questionBank[idx];
-  // prepare q object: shuffle options if mcq
-  let qobj = { id: base.id, type: base.type || 'mcq', text: base.text, time: base.time || 30 };
-  if(qobj.type === 'mcq'){
-    const originalOptions = base.options.slice();
-    // shuffle and compute new correct index
-    const indices = originalOptions.map((_,i)=>i);
-    const shuffledIdx = shuffleArray(indices);
-    const shuffledOptions = shuffledIdx.map(i => originalOptions[i]);
-    const newCorrect = shuffledIdx.indexOf(base.correct);
-    qobj.options = shuffledOptions;
-    qobj.correct = newCorrect;
-  } else {
-    qobj.answer = base.answer;
-  }
-  // push to DB current
-  await db.ref('rooms/'+roomId+'/current').set({
-    index: idx,
-    q: qobj,
-    status: 'open',
-    startedAt: Date.now(),
-    timeLeft: qobj.time || 30,
-    scored: false,
-    answers: {}
-  });
-
-  // update teacher view
-  renderQuestionOnTeacher(qobj, idx);
-
-  // play start audio
-  try{ document.getElementById('soundStart').play(); }catch(e){}
-
-  // start countdown (teacher updates timeLeft for students)
-  startCountdown(qobj.time || 30);
-
-  // setup answers listener to auto-close when all answered
-  if(answersListenerRef) answersListenerRef.off();
-  answersListenerRef = db.ref('rooms/'+roomId+'/current/answers');
-  answersListenerRef.on('value', async snap => {
-    const ans = snap.val() || {};
-    const totalPlayers = Object.keys(playersCache || {}).length;
-    const answeredCount = Object.keys(ans).length;
-    // auto-close when all players answered
-    if(totalPlayers > 0 && answeredCount >= totalPlayers){
-      clearInterval(countdown);
-      await db.ref('rooms/'+roomId+'/current').update({status:'closed'});
-      await scoreAnswers(); // score and update DB
+// Gửi câu hỏi
+async function sendQ(){
+  const q=questions[currentIndex];
+  // shuffle trước khi gửi
+  const indices=[0,1,2,3]; for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
+  const shuffled=indices.map(i=>q.options[i]);
+  const newCorrect=indices.indexOf(q.correct);
+  const qobj={...q,options:shuffled,correct:newCorrect};
+  await db.ref("rooms/"+roomId+"/current").set({index:currentIndex,q:qobj,status:"open",startedAt:Date.now(),answers:{}});
+  renderQTeacher(qobj);
+  startTimer(qobj.time||15);
+  db.ref("rooms/"+roomId+"/current/answers").off();
+  db.ref("rooms/"+roomId+"/current/answers").on("value",async snap=>{
+    const ans=snap.val()||{};if(Object.keys(ans).length>=Object.keys(playersCache).length&&Object.keys(playersCache).length>0){
+      clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();
     }
   });
 }
 
-/* Render question in teacher UI (show options) */
-function renderQuestionOnTeacher(q, idx){
-  document.getElementById('qIndex').textContent = (idx+1);
-  document.getElementById('qText').textContent = q.text || '';
-  document.getElementById('qNote').textContent = (q.type === 'mcq') ? '' : 'Câu điền đáp án';
-  document.getElementById('optionsBox').innerHTML = '';
-  document.getElementById('afterBox').style.display = 'none';
-  document.getElementById('leaderboardView').classList.add('hidden');
-  document.getElementById('questionView').classList.remove('hidden');
-
-  if(q.type === 'mcq'){
-    const colors = ['red','blue','yellow','green'];
-    q.options.forEach((opt,i)=>{
-      const d = document.createElement('div'); d.className = 'opt ' + colors[i%4]; d.textContent = String.fromCharCode(65+i) + '. ' + opt;
-      document.getElementById('optionsBox').appendChild(d);
-    });
-  } else {
-    const d = document.createElement('div'); d.textContent = '(Fill-in question)'; d.className='small';
-    document.getElementById('optionsBox').appendChild(d);
-  }
+// render Q
+function renderQTeacher(q){
+  document.getElementById("qText").textContent=q.text;
+  const box=document.getElementById("optionsBox");box.innerHTML="";
+  ["red","blue","yellow","green"].forEach((c,i)=>{if(q.options[i]){const d=document.createElement("div");d.className="opt "+c;d.textContent=q.options[i];box.appendChild(d);}});
+  document.getElementById("afterBox").style.display="none";
+  document.getElementById("leaderboardView").classList.add("hidden");
+  document.getElementById("questionView").classList.remove("hidden");
 }
 
-/* Countdown: update DB timeLeft per second */
-function startCountdown(sec){
-  clearInterval(countdown);
-  let left = sec;
-  document.getElementById('timeLeft').textContent = left;
-  countdown = setInterval(async ()=>{
-    left--;
-    document.getElementById('timeLeft').textContent = left;
-    await db.ref('rooms/'+roomId+'/current').update({timeLeft: left});
-    if(left <= 0){
-      clearInterval(countdown);
-      await db.ref('rooms/'+roomId+'/current').update({status:'closed'});
-      await scoreAnswers();
-    }
-  },1000);
+// timer
+function startTimer(sec){clearInterval(countdown);let t=sec;document.getElementById("timeLeft").textContent=t;
+countdown=setInterval(async()=>{t--;document.getElementById("timeLeft").textContent=t;if(t<=0){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();}},1000);}
+
+// score
+async function score(){
+  const cur=(await db.ref("rooms/"+roomId+"/current").get()).val();if(!cur)return;
+  const ans=(await db.ref("rooms/"+roomId+"/current/answers").get()).val()||{};
+  let scores=(await db.ref("rooms/"+roomId+"/scores").get()).val()||{};
+  let correctList=[];for(const pid in ans){if(ans[pid].answer==cur.q.correct){correctList.push({pid,time:ans[pid].time});}}
+  correctList.sort((a,b)=>a.time-b.time);
+  correctList.forEach((e,i)=>{let g=0;if(i==0)g=1000;else if(i==1)g=800;else if(i==2)g=600;else g=400;scores[e.pid]=(scores[e.pid]||0)+g;});
+  await db.ref("rooms/"+roomId+"/scores").set(scores);
+  await db.ref("rooms/"+roomId+"/ranking").set(Object.keys(scores).map(pid=>({pid,name:playersCache[pid]?.name||pid,score:scores[pid]})).sort((a,b)=>b.score-a.score).slice(0,20));
+  highlightCorrect(cur.q);
+  document.getElementById("afterBox").style.display="block";
 }
 
-/* Close & score (used by forceNext) */
-async function closeCurrentAndScore(){
-  try{ clearInterval(countdown); }catch(e){}
-  await db.ref('rooms/'+roomId+'/current').update({status:'closed'});
-  await scoreAnswers();
+// highlight
+function highlightCorrect(q){
+  const opts=document.querySelectorAll("#optionsBox .opt");
+  opts.forEach((el,i)=>{el.classList.remove("correct","wrong");if(i==q.correct)el.classList.add("correct");else el.classList.add("wrong");});
 }
 
-/* ========== Scoring: position + time bonus, only correct answers get points ========== */
-async function scoreAnswers(){
-  // prevent double-scoring
-  const curSnap = await db.ref('rooms/'+roomId+'/current').get();
-  const cur = curSnap.val();
-  if(!cur || cur.scored) return; // already scored
-  const q = cur.q;
-  const startedAt = cur.startedAt || 0;
-  const timeLimit = q.time || 30;
-  const answersSnap = await db.ref('rooms/'+roomId+'/current/answers').get();
-  const answers = answersSnap.val() || {};
-
-  // collect correct responders within time
-  const correctList = [];
-  for(const pid in answers){
-    const entry = answers[pid];
-    const ts = entry.time || 0;
-    if(ts > (startedAt + timeLimit*1000)) continue; // late
-    let ok = false;
-    if(q.type === 'mcq'){
-      if(String(entry.answer) == String(q.correct)) ok = true;
-    } else { // fill-in
-      const student = normalizeAnswer(entry.answer);
-      const target = normalizeAnswer(q.answer);
-      if(student === target) ok = true;
-      else if(!isNaN(parseFloat(student)) && !isNaN(parseFloat(target))){
-        if(Math.abs(parseFloat(student) - parseFloat(target)) < 1e-6) ok = true;
-      }
-    }
-    if(ok) correctList.push({pid, ts});
-  }
-  // sort by time asc
-  correctList.sort((a,b)=>a.ts - b.ts);
-
-  // load current scores
-  const scoresSnap = await db.ref('rooms/'+roomId+'/scores').get();
-  const scores = scoresSnap.val() || {};
-
-  // compute deltas: position bonus + time bonus
-  const deltas = {}; // pid -> gained
-  correctList.forEach((entry, i) => {
-    const pid = entry.pid;
-    const ts = entry.ts;
-    const timeUsed = Math.max(0, (ts - startedAt)/1000);
-    const clamped = Math.min(timeLimit, timeUsed);
-    const timeBonus = Math.round(400 * Math.max(0, (1 - (clamped / timeLimit)))); // 0..400
-    let posBonus = 100;
-    if(i===0) posBonus = 500;
-    else if(i===1) posBonus = 300;
-    else if(i===2) posBonus = 300;
-    else posBonus = 100;
-    const gained = posBonus + timeBonus;
-    deltas[pid] = gained;
-    scores[pid] = (scores[pid] || 0) + gained;
-  });
-
-  // ensure players who answered incorrectly get delta 0 (so they see they answered)
-  for(const pid in answers){
-    if(typeof deltas[pid] === 'undefined') deltas[pid] = 0;
-  }
-
-  // persist: scores, lastRound, ranking; mark current.scored=true
-  await db.ref('rooms/'+roomId+'/scores').set(scores);
-  await db.ref('rooms/'+roomId+'/lastRound').set({ qIndex: cur.index, deltas: deltas, timestamp: Date.now() });
-  await db.ref('rooms/'+roomId+'/current').update({scored:true});
-
-  // compute ranking (save top 10 objects: {pid,name,score})
-  const ranking = Object.keys(scores).map(pid => ({ pid, name: (playersCache[pid] && playersCache[pid].name) || pid, score: scores[pid] }))
-    .sort((a,b) => b.score - a.score).slice(0,10);
-  await db.ref('rooms/'+roomId+'/ranking').set(ranking);
-
-  // Update teacher UI: highlight correct answer on teacher screen
-  highlightCorrectOnTeacher(q);
-
-  // Show AFTER box (with SHOW TOP 5 button)
-  document.getElementById('afterBox').style.display = 'block';
-  // update mini top
-  renderMiniTop(scores);
-}
-
-/* Highlight correct option on teacher screen */
-function highlightCorrectOnTeacher(q){
-  if(q.type !== 'mcq') return;
-  const optionsEls = document.querySelectorAll('#optionsBox .opt');
-  optionsEls.forEach((el, idx) => {
-    el.classList.remove('correct','wrong');
-    if(idx === Number(q.correct)) el.classList.add('correct');
-    else el.classList.add('wrong');
-  });
-}
-
-/* Show leaderboard (after teacher clicks Show Top 5) */
-document.getElementById('showTopBtn').onclick = ()=>{
-  showLeaderboard();
-};
-
+// Show top
+document.getElementById("showTopBtn").onclick=()=>showLeaderboard();
 function showLeaderboard(){
-  document.getElementById('questionView').classList.add('hidden');
-  document.getElementById('leaderboardView').classList.remove('hidden');
-  // fill topList from DB ranking
-  db.ref('rooms/'+roomId+'/ranking').once('value').then(snap=>{
-    const ranking = snap.val() || [];
-    const el = document.getElementById('topList'); el.innerHTML = '';
-    if(ranking.length === 0) { el.innerHTML = '<div class="small">Chưa có điểm</div>'; return; }
-    ranking.slice(0,5).forEach((r,i) => {
-      el.innerHTML += `<div class="row"><div>${i+1}. ${r.name}</div><div><strong>${r.score}</strong></div></div>`;
-    });
+  document.getElementById("questionView").classList.add("hidden");
+  document.getElementById("leaderboardView").classList.remove("hidden");
+  db.ref("rooms/"+roomId+"/ranking").once("value").then(snap=>{
+    const arr=snap.val()||[];const el=document.getElementById("topList");el.innerHTML="";arr.forEach((r,i)=>{el.innerHTML+=`<div class="row">${i+1}. ${r.name} <b>${r.score}</b></div>`;});
   });
 }
-
-/* Next question button (on leaderboard view) */
-document.getElementById('nextQBtn').onclick = async ()=>{
-  currentIndex++;
-  if(currentIndex >= questionBank.length){
-    alert('Đã hết bộ câu hỏi');
-    // show final ranking and keep
-    return;
-  }
-  // hide leaderboard and show stage again (question view)
-  document.getElementById('leaderboardView').classList.add('hidden');
-  document.getElementById('questionView').classList.remove('hidden');
-  // send next question
-  await sendQuestion(currentIndex);
-}
-
-/* Safety: when teacher leaves page, cleanup listeners (optional) */
-window.addEventListener('beforeunload', ()=> {
-  if(roomId) {
-    try{
-      db.ref('rooms/'+roomId+'/current/answers').off();
-    }catch(e){}
-  }
-});
+document.getElementById("nextQBtn").onclick=()=>{currentIndex++;if(currentIndex>=questions.length){alert("Hết câu hỏi");return;}sendQ();}
+function renderPlayersList(){const el=document.getElementById("playersList");el.innerHTML="";const players=playersCache||{};const keys=Object.keys(players);if(keys.length===0){el.innerHTML="<div class='small'>Chưa có người chơi</div>";return;}keys.forEach(pid=>{const name=players[pid].name||pid;el.innerHTML+=`<div class="row">${name}</div>`;});}
 </script>
 </body>
 </html>
