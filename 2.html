@@ -7,183 +7,72 @@
 <style>
   body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#fff;margin:0}
   .wrap{max-width:720px;margin:18px auto;padding:12px}
-  .card{background:linear-gradient(180deg,#0f1724,#0b1220);padding:18px;border-radius:14px;box-shadow:0 8px 20px rgba(2,6,23,0.6)}
+  .card{background:#1e293b;padding:18px;border-radius:14px}
   input,button{padding:12px;border-radius:10px;border:none;font-size:15px}
   button{background:#2563eb;color:#fff;cursor:pointer}
   .timer{font-weight:800;font-size:20px;margin-bottom:10px;color:#fef08a}
   .question{font-size:20px;font-weight:800;margin-bottom:14px}
   .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:20px;border-radius:14px;font-weight:800;text-align:center;cursor:pointer;user-select:none;animation:zoomIn .3s}
+  .opt{padding:20px;border-radius:14px;font-weight:800;text-align:center;cursor:pointer}
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
-  .disabled{opacity:.5;pointer-events:none}
-  .resultBox{margin-top:14px;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px}
-  .big{font-size:18px;font-weight:800}
-  @keyframes zoomIn{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card" id="joinCard">
     <input id="nameInput" placeholder="Tên của bạn" style="width:100%;margin-bottom:8px"/>
-    <input id="roomInput" placeholder="Mã phòng (vd: A1-123456)" style="width:100%;margin-bottom:8px"/>
+    <input id="roomInput" placeholder="Mã phòng" style="width:100%;margin-bottom:8px"/>
     <button id="joinBtn">Join</button>
   </div>
 
   <div class="card" id="playCard" style="display:none;margin-top:14px">
     <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
-    <div class="question" id="qText">Chờ giảng viên</div>
+    <div class="question" id="qText">Chờ...</div>
     <div id="opts" class="opts"></div>
-
-    <div id="fillArea" style="margin-top:12px;display:none">
-      <input id="fillInput" placeholder="Nhập đáp án..." style="width:70%;display:inline-block"/>
-      <button id="fillSubmit" style="width:28%;display:inline-block;margin-left:6px">Gửi</button>
-    </div>
-
-    <div class="resultBox" id="resultBox" style="display:none">
-      <div id="statusLine" class="big">Trạng thái: —</div>
-      <div style="margin-top:8px">Điểm: <strong id="myScore">0</strong> — Hạng: <strong id="myRank">-</strong> <span id="medal"></span></div>
-    </div>
+    <div style="margin-top:10px">Điểm: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span></div>
   </div>
 </div>
 
-<!-- sounds -->
-<audio id="soundCorrect" src="https://actions.google.com/sounds/v1/cartoon/concussive_hit_guitar_boing.ogg"></audio>
-<audio id="soundWrong" src="https://actions.google.com/sounds/v1/cartoon/clang.ogg"></audio>
-<audio id="soundStart" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum.ogg"></audio>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-const firebaseConfig = {
-  apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
-  authDomain:"kahoot-like-5251e.firebaseapp.com",
-  databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"kahoot-like-5251e",
-  storageBucket:"kahoot-like-5251e.appspot.com",
-  messagingSenderId:"805207333072",
-  appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"
-};
+const firebaseConfig={apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
+authDomain:"kahoot-like-5251e.firebaseapp.com",
+databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId:"kahoot-like-5251e",storageBucket:"kahoot-like-5251e.appspot.com",
+messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"};
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db=firebase.database();
 
-let playerId = localStorage.getItem('playerId') || ('p'+Math.floor(Math.random()*1e6));
-localStorage.setItem('playerId', playerId);
-let playerName = null, roomId = null;
-let currentQIndex = -1;
-
-/* Join */
-document.getElementById('joinBtn').onclick = async ()=>{
-  playerName = (document.getElementById('nameInput').value||'').trim();
-  roomId = (document.getElementById('roomInput').value||'').trim();
-  if(!playerName || !roomId) { alert('Nhập tên và mã phòng'); return; }
-  // register
-  await db.ref('rooms/'+roomId+'/players/'+playerId).set({name: playerName, joinedAt: Date.now()});
-  // ensure score exists
-  const sref = db.ref('rooms/'+roomId+'/scores/'+playerId);
-  const sSnap = await sref.get();
-  if(!sSnap.exists()) await sref.set(0);
-  // UI
-  document.getElementById('joinCard').style.display='none';
-  document.getElementById('playCard').style.display='block';
-  document.getElementById('resultBox').style.display='none';
-  listenCurrent();
-  listenLastRound();
-  listenRanking();
+let roomId=null,playerId="p"+Math.floor(Math.random()*1e6),playerName="";
+document.getElementById("joinBtn").onclick=async()=>{
+  playerName=document.getElementById("nameInput").value;
+  roomId=document.getElementById("roomInput").value;
+  await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName});
+  document.getElementById("joinCard").style.display="none";
+  document.getElementById("playCard").style.display="block";
+  listenQ();listenRank();
 };
 
-/* Listen to current question shown by teacher */
-function listenCurrent(){
-  db.ref('rooms/'+roomId+'/current').on('value', snap=>{
-    const cur = snap.val();
-    if(!cur) return;
-    document.getElementById('timeLeft').textContent = cur.timeLeft || (cur.q && cur.q.time) || 0;
-    if(cur.status === 'open'){
-      showQuestion(cur.q, cur.index);
-      try{ document.getElementById('soundStart').play(); }catch(e){}
-    } else {
-      // closed: show waiting state until lastRound update (teacher will write lastRound)
-      document.getElementById('statusLine').textContent = 'Câu đã đóng — chờ kết quả...';
-      document.getElementById('resultBox').style.display = 'block';
-    }
+function listenQ(){
+  db.ref("rooms/"+roomId+"/current").on("value",snap=>{
+    const cur=snap.val();if(!cur)return;
+    document.getElementById("timeLeft").textContent=cur.timeLeft||0;
+    if(cur.status==="open"){showQ(cur.q);}else{document.getElementById("opts").innerHTML="";}
   });
 }
-
-/* Show question */
-function showQuestion(q, idx){
-  currentQIndex = idx;
-  document.getElementById('qText').textContent = q.text || '';
-  document.getElementById('resultBox').style.display = 'none';
-  // options or fill
-  if(q.type && q.type === 'fill'){
-    document.getElementById('opts').innerHTML = '';
-    document.getElementById('fillArea').style.display = 'block';
-    document.getElementById('fillSubmit').onclick = async ()=>{
-      const v = (document.getElementById('fillInput').value||'').trim();
-      if(!v) return;
-      await submitAnswer(v);
-    };
-  } else {
-    document.getElementById('fillArea').style.display = 'none';
-    document.getElementById('opts').innerHTML = '';
-    const colors = ['red','blue','yellow','green'];
-    (q.options||[]).forEach((opt,i)=>{
-      const d = document.createElement('div');
-      d.className = 'opt ' + colors[i%4];
-      d.textContent = String.fromCharCode(65+i)+'. '+opt;
-      d.onclick = ()=> submitAnswer(i);
-      document.getElementById('opts').appendChild(d);
-    });
-  }
+function showQ(q){
+  document.getElementById("qText").textContent=q.text;
+  const box=document.getElementById("opts");box.innerHTML="";
+  const colors=["red","blue","yellow","green"];
+  const opts=(q.options||[]).map((txt,i)=>({txt,i}));
+  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+  opts.forEach((o,k)=>{const d=document.createElement("div");d.className="opt "+colors[k%4];d.textContent=String.fromCharCode(65+k)+". "+o.txt;d.onclick=()=>submitAnswer(o.i);box.appendChild(d);});
 }
-
-/* Submit answer */
-async function submitAnswer(ans){
-  // write answer into DB
-  await db.ref('rooms/'+roomId+'/current/answers/'+playerId).set({ name: playerName, answer: ans, time: Date.now() });
-  // disable UI
-  document.getElementById('opts').innerHTML = '<div style="opacity:.7">Đã gửi đáp án — chờ kết quả</div>';
-  document.getElementById('fillArea').style.display='none';
-}
-
-/* Listen lastRound (teacher writes deltas after scoring) */
-function listenLastRound(){
-  db.ref('rooms/'+roomId+'/lastRound').on('value', snap=>{
-    const lr = snap.val();
-    if(!lr) return;
-    // if this round corresponds to currentQIndex or soon after
-    const delta = (lr.deltas && typeof lr.deltas[playerId] !== 'undefined') ? lr.deltas[playerId] : null;
-    if(delta !== null){
-      // show result
-      document.getElementById('resultBox').style.display = 'block';
-      if(delta > 0){
-        document.getElementById('statusLine').textContent = 'Đã cộng ' + delta + ' điểm (đúng)';
-        try{ document.getElementById('soundCorrect').play(); }catch(e){}
-      } else {
-        document.getElementById('statusLine').textContent = 'Không đúng hoặc trả lời muộn';
-        try{ document.getElementById('soundWrong').play(); }catch(e){}
-      }
-      // scoreboard will be updated by ranking listener
-    }
-  });
-}
-
-/* Listen ranking/score changes */
-function listenRanking(){
-  db.ref('rooms/'+roomId+'/scores/'+playerId).on('value', snap=>{
-    const s = snap.val() || 0; document.getElementById('myScore').textContent = s;
-  });
-  // ranking array (teacher writes)
-  db.ref('rooms/'+roomId+'/ranking').on('value', snap=>{
-    const r = snap.val() || [];
-    let myRank = '-';
-    for(let i=0;i<r.length;i++){
-      if(r[i].pid === playerId){ myRank = i+1; break; }
-    }
-    document.getElementById('myRank').textContent = myRank;
-    document.getElementById('medal').textContent = myRank==1 ? ' 🥇' : myRank==2 ? ' 🥈' : myRank==3 ? ' 🥉' : '';
-  });
+async function submitAnswer(ans){await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ans,time:Date.now()});document.getElementById("opts").innerHTML="<i>Đã trả lời</i>";}
+function listenRank(){
+  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{document.getElementById("myScore").textContent=s.val()||0;});
+  db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{const arr=snap.val()||[];let rank="-";arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});document.getElementById("myRank").textContent=rank;});
 }
 </script>
 </body>
