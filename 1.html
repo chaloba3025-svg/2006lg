@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Kahoot-like — Teacher</title>
 <style>
   body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f3f6fb;color:#111}
@@ -16,23 +16,23 @@
   .timer{font-size:26px;font-weight:800;margin-bottom:10px}
   .question{font-size:24px;font-weight:800;margin-bottom:14px}
   .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center;transition:all .3s}
+  .opt{padding:18px;border-radius:12px;color:#fff;font-weight:800;text-align:center;transition:all .3s; user-select:none}
   .red{background:#e63946}.blue{background:#2a9df4}.yellow{background:#f4b400;color:#111}.green{background:#2ec4b6}
   .opt.correct{outline:5px solid #10b981}
   .opt.wrong{opacity:.4}
   .card{flex:1;background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(2,6,23,0.06);margin-top:14px}
-  .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid #f1f5f9}
+  .row{display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid #f1f5f9;align-items:center}
   .hidden{display:none}
   .podium{display:flex;justify-content:center;align-items:flex-end;gap:20px;margin-top:20px}
-  .podium div{background:#2563eb;color:#fff;width:120px;text-align:center;border-radius:12px;padding:10px;transition:all .6s}
+  .podium div{color:#111;width:120px;text-align:center;border-radius:12px;padding:10px;transition:all .6s}
   .first{height:200px;background:linear-gradient(180deg,#f6c90e,#efb700)}.second{height:160px;background:linear-gradient(180deg,#c0c6cf,#94a3b8)}.third{height:140px;background:linear-gradient(180deg,#d6a160,#f97316)}
-  /* leaderboard animation */
-  .top-row{transform:translateY(40px);opacity:0;animation:slideIn .5s forwards}
+  .top-row{transform:translateY(40px);opacity:0;animation:slideIn .45s forwards}
   @keyframes slideIn{to{transform:translateY(0);opacity:1}}
   .score-counter{font-weight:900}
-  .gold{background:linear-gradient(180deg,#f6c90e,#efb700);color:#111;padding:8px;border-radius:8px}
-  .silver{background:linear-gradient(180deg,#c0c6cf,#94a3b8);color:#111;padding:8px;border-radius:8px}
-  .bronze{background:linear-gradient(180deg,#d6a160,#f97316);color:#111;padding:8px;border-radius:8px}
+  .name-bold{font-weight:800;font-size:16px}
+  .gold{background:linear-gradient(180deg,#f6c90e,#efb700);padding:6px;border-radius:6px}
+  .silver{background:linear-gradient(180deg,#c0c6cf,#94a3b8);padding:6px;border-radius:6px}
+  .bronze{background:linear-gradient(180deg,#d6a160,#f97316);padding:6px;border-radius:6px}
 </style>
 </head>
 <body>
@@ -54,21 +54,24 @@
     </div>
 
     <div id="afterView" class="hidden" style="text-align:center">
-      <h3>✅ Đáp án đúng đã hiển thị</h3>
-      <button id="showTopBtn">Xem bảng xếp hạng</button>
+      <h3>✅ Đã đóng câu</h3>
+      <div style="margin-top:8px">
+        <button id="showTopBtn">Xem bảng xếp hạng</button>
+        <button id="nextQBtn" style="margin-left:8px">Next Question</button>
+      </div>
     </div>
 
     <div id="leaderboardView" class="hidden">
       <h3>Bảng xếp hạng Top 20</h3>
       <div id="topList"></div>
-      <button id="nextQBtn">Next Question</button>
+      <button id="endGameBtn" style="margin-top:12px">Kết thúc trò chơi</button>
     </div>
 
     <div id="finalView" class="hidden">
       <h2>Kết thúc trò chơi 🎉</h2>
       <div id="finalRank"></div>
       <div class="podium" id="podiumBox"></div>
-      <button id="exportBtn">Export CSV</button>
+      <button id="exportBtn" style="margin-top:12px">Export CSV</button>
     </div>
   </div>
 
@@ -97,11 +100,9 @@ messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-let roomId=null,currentIndex=-1,countdown=null,playersCache={};
+let roomId=null,currentIndex=-1,countdown=null,playersCache={}, teacherShuffle=[];
 
-// ===== 28 câu hỏi (giữ nội dung) =====
-// LƯU Ý: chỉ sửa type cho 7,14,21,28 -> type:'input' và provide correctText (chuỗi kiểm tra)
-// Hiển thị câu/ phương án giữ ký hiệu π và √ (pi/can(2) áp dụng khi học sinh nhập)
+// ====== QUESTIONS (keep original content) ======
 const questions=[
 {text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:30},
 {text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:30},
@@ -109,24 +110,21 @@ const questions=[
 {text:"180° = ?",options:["π","π/2","2π","3π/2"],correct:0,time:30},
 {text:"270° = ?",options:["3π/2","π","2π","π/2"],correct:0,time:30},
 {text:"360° = ?",options:["2π","π","π/2","3π/2"],correct:0,time:30},
-// 7th -> input
-{text:"30° = ?",type:"input",correctText:"pi/6",time:30},
+{text:"30° = ?",type:"input",correctText:"pi/6",time:30}, // 7 input
 {text:"120° = ?",options:["2π/3","π/3","π/2","π"],correct:0,time:30},
 {text:"150° = ?",options:["5π/6","π/2","2π/3","π"],correct:0,time:30},
 {text:"210° = ?",options:["7π/6","π","3π/2","2π"],correct:0,time:30},
 {text:"240° = ?",options:["4π/3","π","π/2","3π/2"],correct:0,time:30},
 {text:"300° = ?",options:["5π/3","π","π/2","2π"],correct:0,time:30},
 {text:"330° = ?",options:["11π/6","π","π/2","2π"],correct:0,time:30},
-// 14th -> input (Sinh(0°))
-{text:"Sinh(0°) = ?",type:"input",correctText:"0",time:30},
+{text:"Sinh(0°) = ?",type:"input",correctText:"0",time:30}, //14 input
 {text:"Cos(0°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
 {text:"Sin(90°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
 {text:"Cos(90°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
 {text:"Sin(180°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
 {text:"Cos(180°) = ?",options:["-1","0","1","Không xác định"],correct:0,time:30},
 {text:"Sin(270°) = ?",options:["-1","0","1","Không xác định"],correct:0,time:30},
-// 21st -> input (Sin(270°))
-{text:"Sin(270°) = ?",type:"input",correctText:"-1",time:30},
+{text:"Sin(270°) = ?",type:"input",correctText:"-1",time:30}, //21 input
 {text:"Cos(270°) = ?",options:["0","-1","1","Không xác định"],correct:0,time:30},
 {text:"Sin(360°) = ?",options:["0","1","-1","Không xác định"],correct:0,time:30},
 {text:"Cos(360°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
@@ -134,23 +132,42 @@ const questions=[
 {text:"Cot(45°) = ?",options:["1","0","-1","Không xác định"],correct:0,time:30},
 {text:"Tan(0°) = ?",options:["0","1","Không xác định","-1"],correct:0,time:30},
 {text:"Tan(90°) = ?",options:["Không xác định","0","1","-1"],correct:0,time:30},
-// 28th -> input (Cot(90°))
 {text:"Cot(0°) = ?",options:["Không xác định","0","1","-1"],correct:0,time:30},
-{text:"Cot(90°) = ?",type:"input",correctText:"khong xac dinh",time:30}
+{text:"Cot(90°) = ?",type:"input",correctText:"khong xac dinh",time:30} //28 input
 ];
 
-// =========== GEN ROOM ===========
+// Utility: shuffle array in place
+function shuffleArray(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+// Generate room
 function genRoom(){const n=Math.floor(Math.random()*90)+10;return "A"+n;}
 
 document.getElementById("createRoom").onclick=async()=>{
   roomId=genRoom();
-  // create room skeleton
   await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{},ranking:[]});
   document.getElementById("roomInfo").textContent="Room: "+roomId;
   document.getElementById("startBtn").disabled=false;
   document.getElementById("waitingView").classList.remove("hidden");
+
+  // listen players
   db.ref("rooms/"+roomId+"/players").on("value",s=>{
-    playersCache=s.val()||{};renderPlayersList();
+    playersCache=s.val()||{}; renderPlayersList();
+  });
+
+  // listen answers so teacher can auto-finish when all answered
+  db.ref("rooms/"+roomId+"/current/answers").on("value",snap=>{
+    const answers=snap.val()||{};
+    const playersCount=Object.keys(playersCache).length;
+    const answersCount=Object.keys(answers).length;
+    if(playersCount>0 && answersCount>=playersCount){
+      // all answered -> auto finish
+      if(document.getElementById("soundTick")){ /* keep */ }
+      // small delay to allow last write to DB propagate
+      setTimeout(()=>{ if(document.getElementById("nextQBtn").disabled===false) finishQuestion(); else finishQuestion(); },300);
+    }
   });
 };
 
@@ -159,19 +176,19 @@ function renderPlayersList(){
   document.getElementById("playersList").innerHTML=html||"-";
 }
 
-// =========== START GAME ===========
+// Start game
 document.getElementById("startBtn").onclick=()=>{
   document.getElementById("playersCard").style.display="none";
   document.getElementById("soundStart").play();
-  document.getElementById("bgMusic").play();
-  currentIndex=-1;nextQuestion();
+  try{document.getElementById("bgMusic").play();}catch(e){}
+  currentIndex=-1; nextQuestion();
   db.ref("rooms/"+roomId).update({status:"playing"});
 };
 
 function nextQuestion(){
   currentIndex++;
   if(currentIndex>=questions.length){endGame();return;}
-  const q=questions[currentIndex];
+  const q = questions[currentIndex];
   showQuestion(q);
 }
 
@@ -179,173 +196,200 @@ function showQuestion(q){
   document.getElementById("waitingView").classList.add("hidden");
   document.getElementById("afterView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.add("hidden");
+  document.getElementById("finalView").classList.add("hidden");
   document.getElementById("questionView").classList.remove("hidden");
 
-  document.getElementById("qText").textContent=q.text;
-  const box=document.getElementById("optionsBox");box.innerHTML="";
+  document.getElementById("qText").textContent = q.text;
+  const box=document.getElementById("optionsBox"); box.innerHTML="";
+
+  // Teacher has its own shuffle (NEW) for display only
   if(q.type==="input"){
-    const input=document.createElement("input");
-    input.placeholder="Nhập đáp án (vd: pi/6, can(2), 0, -1, khong xac dinh)";
-    input.style.width="100%";
-    input.id="teacherInputPreview";
-    box.appendChild(input);
+    const preview=document.createElement("div");
+    preview.style.padding="14px"; preview.style.borderRadius="8px"; preview.style.background="#eef2ff";
+    preview.textContent = "Input (học sinh sẽ nhập). Giáo viên xem preview: " + (q.correctText||"");
+    box.appendChild(preview);
+    teacherShuffle = []; // none
   } else {
-    let opts=[...q.options];
-    for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+    const opts = q.options.slice();
+    const idxs = opts.map((_,i)=>i);
+    shuffleArray(idxs); // teacher shuffle (NEW)
+    teacherShuffle = idxs; // teacher local mapping: local index -> original index
     const colors=["red","blue","yellow","green"];
-    opts.forEach((o,k)=>{
-      const d=document.createElement("div");d.className="opt "+colors[k%4];d.textContent=o;box.appendChild(d);
+    idxs.forEach((origIdx,k)=>{
+      const d=document.createElement("div");
+      d.className="opt "+colors[k%4];
+      d.textContent = String.fromCharCode(65+k) + ". " + q.options[origIdx];
+      box.appendChild(d);
     });
   }
 
-  // set start time so students & teacher can compute speed
-  const startAt=Date.now();
-  let t=q.time||30;
-  updateTime(t);
-  db.ref("rooms/"+roomId+"/current").set({q:{text:q.text,options:q.options,type:q.type||'mc',time:q.time,correctIndex:q.correct,correctText:q.correctText||null},status:"open",timeLeft:t,startAt:startAt,answers:{}});
+  // publish to DB the question WITHOUT the correct answer (so students can't see)
+  const startAt = Date.now();
+  const publishQ = {
+    text: q.text,
+    options: q.options || null, // original order
+    type: q.type || 'mc',
+    time: q.time || 30,
+    startAt: startAt
+    // NOTE: do NOT include correct or correctText in DB to avoid leaking answer to students
+  };
+  db.ref("rooms/"+roomId+"/current").set({q: publishQ, status:"open", timeLeft: q.time || 30, startAt: startAt, answers:{}});
 
-  if(countdown)clearInterval(countdown);
-  countdown=setInterval(()=>{
-    t--;updateTime(t);
-    if(t<=3)document.getElementById("soundTick").play();
-    // update timeLeft in db for student displays
+  // start teacher-side countdown and update timeLeft in DB (NEW)
+  let t = q.time || 30;
+  updateTime(t);
+  if(countdown) clearInterval(countdown);
+  countdown = setInterval(()=>{
+    t--; updateTime(t);
     db.ref("rooms/"+roomId+"/current/timeLeft").set(t);
-    if(t<=0){clearInterval(countdown);finishQuestion();}
+    if(t<=3) document.getElementById("soundTick").play();
+    if(t<=0){ clearInterval(countdown); finishQuestion(); }
   },1000);
 }
 
-function updateTime(t){document.getElementById("timeLeft").textContent=t;}
+function updateTime(t){document.getElementById("timeLeft").textContent = t;}
 
-// =========== FINISH QUESTION ===========
+// Finish question: grade answers, update scores & ranking, close question (NEW: do NOT reveal correct in DB)
 async function finishQuestion(){
+  // hide question and show after view on teacher
   document.getElementById("questionView").classList.add("hidden");
   document.getElementById("afterView").classList.remove("hidden");
   document.getElementById("soundEnd").play();
 
-  // fetch answers and compute scores with time-based bonus
-  const ansSnap=await db.ref("rooms/"+roomId+"/current/answers").get();
-  const answers=ansSnap.val()||{};
-  const q=questions[currentIndex];
-  const curSnap=await db.ref("rooms/"+roomId+"/current/startAt").get();
-  const startAt=curSnap.val()||Date.now();
+  // read answers from DB
+  const ansSnap = await db.ref("rooms/"+roomId+"/current/answers").get();
+  const answers = ansSnap.val() || {};
+  const q = questions[currentIndex];
+  const startAt = (await db.ref("rooms/"+roomId+"/current/startAt").get()).val() || Date.now();
 
-  // For each answer compute score: correct -> base + bonus ; wrong -> 0
+  // compute and update scores
   for(const pid in answers){
-    const a=answers[pid];
-    // compute remaining time at submission
-    let timeTakenSec=Math.floor((a.time - startAt)/1000);
-    if(timeTakenSec<0)timeTakenSec=0;
+    const a = answers[pid];
+    // submission time stored by student as 'time'
+    const timeSubmitted = a.time || Date.now();
+    let timeTakenSec = Math.floor((timeSubmitted - startAt)/1000);
+    if(timeTakenSec < 0) timeTakenSec = 0;
     const qTime = q.time || 30;
-    let remaining = qTime - timeTakenSec;
-    if(remaining<0)remaining=0;
-    let scoreToAdd=0;
-    // check correctness
-    let isCorrect=false;
-    if(q.type==="input"){
-      // normalize both sides: lower, remove spaces
-      const given = (String(a.answer||"")).toLowerCase().trim().replace(/\s+/g,'');
+    let remaining = qTime - timeTakenSec; if(remaining < 0) remaining = 0;
+    let scoreToAdd = 0;
+    let isCorrect = false;
+
+    if(q.type === "input"){
+      const given = String(a.answer||"").toLowerCase().trim().replace(/\s+/g,'');
       const expected = String(q.correctText||"").toLowerCase().trim().replace(/\s+/g,'');
-      // accept some variants for undefined
       const accepted = [expected];
-      if(expected==="khong xac dinh") accepted.push("khôngxácđịnh","undefined");
-      if(accepted.includes(given)) isCorrect=true;
+      if(expected === "khong xac dinh") accepted.push("khôngxácđịnh","undefined");
+      if(accepted.includes(given)) isCorrect = true;
     } else {
-      if(Number(a.answer)===Number(q.correct)) isCorrect=true;
+      // a.answer is originalIndex sent by student
+      if(Number(a.answer) === Number(q.correct)) isCorrect = true;
     }
 
     if(isCorrect){
-      const base=500;
-      const bonus=Math.round((remaining / qTime) * 500);
-      scoreToAdd=base+bonus;
+      const base = 500;
+      const bonus = Math.round((remaining / (q.time||30)) * 500);
+      scoreToAdd = base + bonus;
     } else {
-      scoreToAdd=0;
+      scoreToAdd = 0;
     }
 
-    const ref=db.ref("rooms/"+roomId+"/scores/"+pid);
-    const snap=await ref.get();const old=snap.val()||0;
-    await ref.set(old+scoreToAdd);
+    const ref = db.ref("rooms/"+roomId+"/scores/"+pid);
+    const snap = await ref.get(); const old = snap.val() || 0;
+    await ref.set(old + scoreToAdd);
   }
 
-  // set current.status closed and publish correct info for students to highlight
-  let publish={status:"closed"};
-  if(questions[currentIndex].type==="input"){
-    publish.correctText=questions[currentIndex].correctText;
-  } else {
-    publish.correctIndex=questions[currentIndex].correct;
-  }
-  await db.ref("rooms/"+roomId+"/current").update(publish);
-}
+  // mark current.status closed (do NOT include correct) so students cannot see correct answers
+  await db.ref("rooms/"+roomId+"/current").update({status:"closed"});
 
-// =========== SHOW TOP & NEXT ===========
-document.getElementById("showTopBtn").onclick=async()=>{
-  document.getElementById("afterView").classList.add("hidden");
-  document.getElementById("leaderboardView").classList.remove("hidden");
-  const snap=await db.ref("rooms/"+roomId+"/scores").get();
-  const scores=snap.val()||{};
-  const arr=Object.entries(scores).map(([pid,sc])=>({pid,name:playersCache[pid]?.name||pid,score:sc}));
+  // Update ranking immediately so students can see their rank (NEW)
+  const snapScores = await db.ref("rooms/"+roomId+"/scores").get();
+  const scores = snapScores.val() || {};
+  const arr = Object.entries(scores).map(([pid,sc])=>({pid,name:playersCache[pid]?.name||pid,score:sc}));
   arr.sort((a,b)=>b.score-a.score);
   await db.ref("rooms/"+roomId+"/ranking").set(arr);
 
-  // render top 20 with animation and special styling for top 3
+  // Teacher local: highlight correct/wrong on teacher's shuffled view (we have teacherShuffle and q.correct)
+  const box = document.getElementById("optionsBox");
+  if(q.type !== "input"){
+    Array.from(box.children).forEach((el,localIdx)=>{
+      const origIdx = teacherShuffle[localIdx];
+      if(origIdx === q.correct){
+        el.classList.add("correct");
+      } else {
+        el.classList.add("wrong");
+      }
+    });
+  }
+
+  // allow teacher to view top (button triggers)
+}
+
+// Show Top 20 with visual improvements (slide-in & counter-up)
+document.getElementById("showTopBtn").onclick = async ()=>{
+  document.getElementById("afterView").classList.add("hidden");
+  document.getElementById("leaderboardView").classList.remove("hidden");
+  const snap = await db.ref("rooms/"+roomId+"/scores").get();
+  const scores = snap.val() || {};
+  const arr = Object.entries(scores).map(([pid,sc])=>({pid,name:playersCache[pid]?.name||pid,score:sc}));
+  arr.sort((a,b)=>b.score-a.score);
+  await db.ref("rooms/"+roomId+"/ranking").set(arr);
+
   let html="";
   arr.slice(0,20).forEach((r,i)=>{
-    let cls="";
-    if(i===0) cls="gold";
-    else if(i===1) cls="silver";
-    else if(i===2) cls="bronze";
-    html+=`<div class="row top-row"><span>${i+1}. ${r.name}</span><span class="score-counter ${cls}" data-score="${r.score}">0</span></div>`;
+    let special="";
+    if(i===0) special='class="gold"';
+    else if(i===1) special='class="silver"';
+    else if(i===2) special='class="bronze"';
+    const star = i<5 ? " ⭐" : "";
+    html += `<div class="row top-row"><div><span class="name-bold">${i+1}. ${r.name}${star}</span></div><div class="score-counter" data-score="${r.score}" ${special}>0</div></div>`;
   });
-  document.getElementById("topList").innerHTML=html;
+  document.getElementById("topList").innerHTML = html;
 
-  // counter-up effect
+  // counter-up
   document.querySelectorAll(".score-counter").forEach(el=>{
     const final = Number(el.getAttribute("data-score")||0);
-    let cur=0; const step = Math.max(1, Math.floor(final/30));
-    const it = setInterval(()=>{ cur+=step; if(cur>=final){el.textContent=final; clearInterval(it);} else el.textContent=cur; },20);
+    let cur = 0; const step = Math.max(1, Math.floor(final/30));
+    const it = setInterval(()=>{ cur += step; if(cur >= final){ el.textContent = final; clearInterval(it);} else el.textContent = cur; },20);
   });
 };
 
-document.getElementById("nextQBtn").onclick=()=>{nextQuestion();};
+document.getElementById("nextQBtn").onclick = ()=>{
+  nextQuestion();
+};
 
-// =========== END GAME ===========
+document.getElementById("endGameBtn").onclick = ()=> endGame();
+
+document.getElementById("exportBtn").onclick = async ()=>{
+  const s = await db.ref("rooms/"+roomId+"/scores").get();
+  const scores = s.val() || {};
+  let csv = "Name,Score\n";
+  Object.entries(scores).forEach(([pid,sc])=>{ csv += `${playersCache[pid]?.name||pid},${sc}\n`; });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="results.csv"; a.click();
+};
+
+// End game
 async function endGame(){
-  document.getElementById("questionView").classList.add("hidden");
-  document.getElementById("afterView").classList.add("hidden");
   document.getElementById("leaderboardView").classList.add("hidden");
   document.getElementById("finalView").classList.remove("hidden");
-
-  const snap=await db.ref("rooms/"+roomId+"/scores").get();
-  const scores=snap.val()||{};
-  const arr=Object.entries(scores).map(([pid,sc])=>({pid,name:playersCache[pid]?.name||pid,score:sc}));
+  const snap = await db.ref("rooms/"+roomId+"/scores").get();
+  const scores = snap.val() || {};
+  const arr = Object.entries(scores).map(([pid,sc])=>({pid,name:playersCache[pid]?.name||pid,score:sc}));
   arr.sort((a,b)=>b.score-a.score);
 
-  let html="";arr.forEach((r,i)=>{html+=`<div class="row"><span>${i+1}. ${r.name}</span><span>${r.score}</span></div>`;});
-  document.getElementById("finalRank").innerHTML=html;
+  let html=""; arr.forEach((r,i)=>{ html += `<div class="row"><span>${i+1}. ${r.name}</span><span>${r.score}</span></div>`; });
+  document.getElementById("finalRank").innerHTML = html;
 
-  const podium=document.getElementById("podiumBox");podium.innerHTML="";
-  if(arr[1])podium.innerHTML+=`<div class="second">${arr[1].name}<br/>${arr[1].score}</div>`;
-  if(arr[0])podium.innerHTML+=`<div class="first">${arr[0].name}<br/>${arr[0].score}</div>`;
-  if(arr[2])podium.innerHTML+=`<div class="third">${arr[2].name}<br/>${arr[2].score}</div>`;
+  const podium=document.getElementById("podiumBox"); podium.innerHTML="";
+  if(arr[1]) podium.innerHTML+=`<div class="second">${arr[1].name}<br/>${arr[1].score}</div>`;
+  if(arr[0]) podium.innerHTML+=`<div class="first">${arr[0].name}<br/>${arr[0].score}</div>`;
+  if(arr[2]) podium.innerHTML+=`<div class="third">${arr[2].name}<br/>${arr[2].score}</div>`;
 
-  // export button handler (kept)
-  document.getElementById("exportBtn").onclick=async()=>{
-    const s=await db.ref("rooms/"+roomId+"/scores").get();
-    const scores2=s.val()||{};
-    let csv="Name,Score\n";
-    Object.entries(scores2).forEach(([pid,sc])=>{csv+=`${playersCache[pid]?.name||pid},${sc}\n`;});
-    const blob=new Blob([csv],{type:"text/csv"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="results.csv";a.click();
-  };
-
-  // after a short delay, remove room data automatically to keep DB clean
-  setTimeout(async()=>{
-    try{
-      await db.ref("rooms/"+roomId).remove();
-      console.log("Room removed:",roomId);
-    }catch(e){console.warn("Failed to remove room",e);}
+  // auto-remove room after short delay to keep DB clean
+  setTimeout(async ()=>{
+    try{ await db.ref("rooms/"+roomId).remove(); console.log("Room removed:",roomId); } catch(e){ console.warn("Failed to remove room", e); }
   },5000);
 
-  // stop bg music
   try{document.getElementById("bgMusic").pause();document.getElementById("bgMusic").currentTime=0;}catch(e){}
 }
 </script>
