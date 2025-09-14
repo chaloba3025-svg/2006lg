@@ -9,14 +9,14 @@
   header{background:#2b6cb0;color:#fff;padding:12px;text-align:center}
   h1{margin:0;font-size:24px}
   .container{max-width:1100px;margin:20px auto;padding:0 12px}
-  .controls{margin-bottom:20px;text-align:center}
+  .controls{text-align:center;margin-bottom:20px}
   input,button{padding:10px;font-size:16px;border-radius:8px;border:1px solid #ccc}
   button{cursor:pointer;background:#2b6cb0;color:#fff;border:none;margin-left:8px}
   button:disabled{background:#ccc;cursor:not-allowed}
   .quiz-box{background:#fff;border-radius:12px;padding:20px;box-shadow:0 4px 8px rgba(0,0,0,0.1)}
-  .question{font-size:24px;font-weight:700;margin-bottom:20px;animation:fadeIn 0.5s}
+  .question{font-size:24px;font-weight:700;margin-bottom:20px;animation:fadeIn .5s}
   .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .opt{border-radius:12px;color:#fff;font-weight:700;padding:20px;text-align:center;animation:zoomIn 0.5s}
+  .opt{border-radius:12px;color:#fff;font-weight:700;padding:20px;text-align:center;animation:zoomIn .5s}
   .red{background:#e74c3c}.blue{background:#3498db}.yellow{background:#f1c40f;color:#222}.green{background:#2ecc71}
   .timer{font-size:22px;font-weight:800;margin-bottom:12px}
   .pulse{animation:pulse 1s infinite}
@@ -24,7 +24,7 @@
   .card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1)}
   .rank{padding:6px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-size:16px}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  @keyframes zoomIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes zoomIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
 </style>
 </head>
@@ -44,22 +44,19 @@
     <div class="options" id="optionsBox"></div>
   </div>
   <div class="side">
-    <div class="card">
-      <h3>Top 5</h3>
-      <div id="topList">-</div>
-    </div>
-    <div class="card">
-      <h3>Players</h3>
-      <div id="playersList">-</div>
-    </div>
+    <div class="card"><h3>Top 5</h3><div id="topList">-</div></div>
+    <div class="card"><h3>Players</h3><div id="playersList">-</div></div>
   </div>
 </div>
+
+<!-- Âm thanh -->
+<audio id="sound-start" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="sound-end" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-// Firebase config (giữ nguyên config của bạn)
 const firebaseConfig={apiKey:"AIzaSyBMIxJxZ4GC8HTTKREB45SRSbTay15Kg7I",
 authDomain:"kahoot-like-5251e.firebaseapp.com",
 databaseURL:"https://kahoot-like-5251e-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -67,45 +64,71 @@ projectId:"kahoot-like-5251e",storageBucket:"kahoot-like-5251e.appspot.com",
 messagingSenderId:"805207333072",appId:"1:805207333072:web:63d23d41b05fa6bd71e6d5"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-let roomId=null,currentIndex=-1,questions=[],countdown=null;
 
-// 28 câu hỏi (rút gọn: chỉ minh họa, bạn có thể giữ nguyên như bản trước)
-questions=[{text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:20},
-{text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:20}];
+let roomId=null,currentIndex=-1,countdown=null,playersCache={};
+const questions=[
+{text:"90° = ?",options:["π/2","π","2π","π/3"],correct:0,time:15},
+{text:"45° = ?",options:["π/4","π/6","π/3","π/2"],correct:0,time:15},
+{text:"60° = ?",options:["π/3","π/2","2π/3","π/4"],correct:0,time:15}
+];
 
-function genCode(){return Math.floor(100000+Math.random()*900000)}
-function showQ(q){document.getElementById("qText").textContent=q.text;
-const box=document.getElementById("optionsBox");box.innerHTML="";
-const colors=["red","blue","yellow","green"];
-(q.options||[]).forEach((o,i)=>{const d=document.createElement("div");
-d.className="opt "+colors[i%4];d.textContent=o;box.appendChild(d);});}
-function updateTop(scores){const arr=Object.entries(scores||{}).sort((a,b)=>b[1]-a[1]).slice(0,5);
-const el=document.getElementById("topList");el.innerHTML="";
-arr.forEach((x,i)=>{el.innerHTML+=`<div class="rank">${i+1}. ${x[0]} <b>${x[1]}</b></div>`});}
-
+// Create room
 document.getElementById("createRoom").onclick=async()=>{
-roomId=document.getElementById("className").value+"-"+genCode();
-await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{}}); 
-document.getElementById("roomInfo").textContent="Room: "+roomId;
-document.getElementById("startQuiz").disabled=false;
-db.ref("rooms/"+roomId+"/players").on("value",s=>{
-const data=s.val()||{};const el=document.getElementById("playersList");el.innerHTML="";
-for(const p in data){el.innerHTML+=`<div>${data[p].name||p}</div>`}});
-db.ref("rooms/"+roomId+"/scores").on("value",s=>updateTop(s.val()||{}));};
+  roomId=document.getElementById("className").value+"-"+Math.floor(100000+Math.random()*900000);
+  await db.ref("rooms/"+roomId).set({status:"waiting",players:{},scores:{}});
+  document.getElementById("roomInfo").textContent="Room: "+roomId;
+  document.getElementById("startQuiz").disabled=false;
+  db.ref("rooms/"+roomId+"/players").on("value",s=>{
+    playersCache=s.val()||{};
+    const el=document.getElementById("playersList");el.innerHTML="";
+    for(const p in playersCache){el.innerHTML+=`<div>${playersCache[p].name}</div>`;}
+  });
+  db.ref("rooms/"+roomId+"/scores").on("value",s=>updateTop(s.val()||{}));
+};
 
+// Start quiz
 document.getElementById("startQuiz").onclick=()=>{currentIndex=0;sendQ();document.getElementById("nextQuestion").disabled=false;}
 document.getElementById("nextQuestion").onclick=()=>{closeQ();currentIndex++;if(currentIndex<questions.length)sendQ();}
 
-async function sendQ(){const q=questions[currentIndex];showQ(q);
+// Gửi câu hỏi
+async function sendQ(){const q=questions[currentIndex];
+document.getElementById("qText").textContent=q.text;
+const box=document.getElementById("optionsBox");box.innerHTML="";
+["red","blue","yellow","green"].forEach((c,i)=>{if(q.options[i]){const d=document.createElement("div");d.className="opt "+c;d.textContent=q.options[i];box.appendChild(d);}});
 await db.ref("rooms/"+roomId+"/current").set({index:currentIndex,q:q,status:"open",startedAt:Date.now(),answers:{}});
-startTimer(q.time);}
+document.getElementById("sound-start").play();
+startTimer(q.time);
+// auto-close khi tất cả đã trả lời
+db.ref("rooms/"+roomId+"/current/answers").off();
+db.ref("rooms/"+roomId+"/current/answers").on("value",async snap=>{
+  const ans=snap.val()||{};const total=Object.keys(playersCache).length;const done=Object.keys(ans).length;
+  if(total>0 && done>=total){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();}
+});}
+
+// Đếm ngược
 function startTimer(sec){clearInterval(countdown);let t=sec;tick();countdown=setInterval(()=>{t--;tick();if(t<=0){closeQ();}},1000);
 function tick(){const el=document.getElementById("timeLeft");el.textContent=t;el.className=t<=5?"pulse":"";}}
-async function closeQ(){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();}
+
+// Kết thúc
+async function closeQ(){clearInterval(countdown);await db.ref("rooms/"+roomId+"/current").update({status:"closed"});score();document.getElementById("sound-end").play();}
+
+// Chấm điểm
 async function score(){const cur=(await db.ref("rooms/"+roomId+"/current").get()).val();if(!cur)return;
-const ans=(await db.ref("rooms/"+roomId+"/current/answers").get()).val()||{};let scores=(await db.ref("rooms/"+roomId+"/scores").get()).val()||{};
-for(const pid in ans){if(ans[pid].answer==cur.q.correct){scores[pid]=(scores[pid]||0)+1000;}}
-await db.ref("rooms/"+roomId+"/scores").set(scores);updateTop(scores);}
+const ans=(await db.ref("rooms/"+roomId+"/current/answers").get()).val()||{};
+let scores=(await db.ref("rooms/"+roomId+"/scores").get()).val()||{};
+let correctList=[];
+for(const pid in ans){if(ans[pid].answer==cur.q.correct){correctList.push({pid:pid,ts:ans[pid].time});}}
+correctList.sort((a,b)=>a.ts-b.ts);
+correctList.forEach((entry,i)=>{let gained=0;if(i==0)gained=1000;else if(i==1)gained=800;else if(i==2)gained=600;else gained=400;
+scores[entry.pid]=(scores[entry.pid]||0)+gained;});
+await db.ref("rooms/"+roomId+"/scores").set(scores);
+updateTop(scores);}
+
+// Cập nhật Top
+function updateTop(scores){const arr=Object.entries(scores||{}).map(([pid,sc])=>({name:playersCache[pid]?.name||pid,score:sc}))
+.sort((a,b)=>b.score-a.score).slice(0,5);
+const el=document.getElementById("topList");el.innerHTML="";
+arr.forEach((x,i)=>{el.innerHTML+=`<div class="rank">${i+1}. ${x.name} <b>${x.score}</b></div>`});}
 </script>
 </body>
 </html>
