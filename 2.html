@@ -24,6 +24,8 @@
   .muted{opacity:.5}
   .input-answer{display:flex;gap:8px}
   .input-answer input{flex:1;padding:8px;border-radius:8px;border:none}
+  .personal-info{margin-top:10px;font-weight:700}
+  .highlight-name{font-weight:800;font-size:18px}
 </style>
 </head>
 <body>
@@ -39,9 +41,7 @@
     <div class="timer">⏳ <span id="timeLeft">0</span>s</div>
     <div class="question" id="qText">Chờ...</div>
     <div id="opts" class="opts"></div>
-    <div style="margin-top:10px;text-align:center">
-      Điểm: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span>
-    </div>
+    <div class="personal-info" id="personalInfo" style="display:none">Điểm của bạn: <span id="myScore">0</span> | Hạng: <span id="myRank">-</span></div>
   </div>
 </div>
 
@@ -63,10 +63,14 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 let roomId=null,playerId="p"+Math.floor(Math.random()*1e6),playerName="";
+let currentQ_ts = null; // to detect question changes
+let localShuffle = []; // mapping local index -> original index
+let hasAnswered = false;
+
 document.getElementById("joinBtn").onclick=async()=>{
   playerName=document.getElementById("nameInput").value.trim();
   roomId=document.getElementById("roomInput").value.trim();
-  if(!playerName||!roomId)return;
+  if(!playerName||!roomId) return;
   await db.ref("rooms/"+roomId+"/players/"+playerId).set({name:playerName});
   document.getElementById("joinCard").style.display="none";
   document.getElementById("playCard").style.display="block";
@@ -74,104 +78,130 @@ document.getElementById("joinBtn").onclick=async()=>{
   listenRank();
 };
 
-let currentQ=null,hasAnswered=false;
-
-// listen room changes (current question / status)
-function listenRoom(){
-  db.ref("rooms/"+roomId+"/current").on("value",snap=>{
-    const cur=snap.val();
-    if(!cur){
-      setStatus("⏳ Đang chờ giáo viên tạo phòng hoặc phòng đã kết thúc");
-      document.getElementById("opts").innerHTML="";
-      return;
-    }
-    // status handling
-    if(cur.status==="open"){
-      showQ(cur.q);
-      hasAnswered = Boolean(cur.answers && cur.answers[playerId]);
-      setStatus(hasAnswered ? "⏳ Bạn đã trả lời" : "⏳ Trả lời ngay!");
-      // time left
-      document.getElementById("timeLeft").textContent = cur.timeLeft || cur.q.time || 0;
-      // play bgMusic when open
-      try{document.getElementById("bgMusic").play();}catch(e){}
-    } else if(cur.status==="closed"){
-      // show correct/wrong highlight
-      revealAnswer(cur);
-      setStatus("⏺️ Câu đã kết thúc — đáp án hiển thị");
-      // stop bg music
-      try{document.getElementById("bgMusic").pause();document.getElementById("bgMusic").currentTime=0;}catch(e){}
-    }
-    // update timer if teacher updates timeLeft
-    if(cur.timeLeft!==undefined) document.getElementById("timeLeft").textContent = cur.timeLeft;
-  });
-
-  // cleanup if room removed
-  db.ref("rooms/"+roomId).on("value",snap=>{
-    if(!snap.val()){
-      setStatus("Phòng đã được xoá (Game kết thúc).");
-      document.getElementById("opts").innerHTML="";
-      try{document.getElementById("bgMusic").pause();}catch(e){}
-    }
-  });
+// utility shuffle
+function shuffleArray(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
 }
 
 function setStatus(txt){document.getElementById("statusText").textContent = txt;}
 
-// render question for student
-function showQ(q){
-  currentQ = q;
-  hasAnswered=false;
+// listen to current question & room changes
+function listenRoom(){
+  db.ref("rooms/"+roomId+"/current").on("value", snap=>{
+    const cur = snap.val();
+    if(!cur){
+      setStatus("Phòng không tồn tại hoặc đã kết thúc.");
+      document.getElementById("opts").innerHTML="";
+      try{document.getElementById("bgMusic").pause();}catch(e){}
+      return;
+    }
+
+    // time left update
+    if(cur.timeLeft !== undefined) document.getElementById("timeLeft").textContent = cur.timeLeft;
+
+    // detect new question via startAt timestamp
+    const qObj = cur.q || null;
+    if(qObj && qObj.startAt && qObj.startAt !== currentQ_ts){
+      currentQ_ts = qObj.startAt;
+      // render question (NEW) - student must render input & MC properly
+      renderQuestion(qObj);
+      hasAnswered = Boolean(cur.answers && cur.answers[playerId]);
+      setStatus(hasAnswered ? "⏳ Bạn đã trả lời" : "⏳ Trả lời ngay!");
+      try{document.getElementById("bgMusic").play();}catch(e){}
+    }
+
+    // status closed -> reveal result for student (but do not show correct answer)
+    if(cur.status === "closed"){
+      // stop bg music
+      try{document.getElementById("bgMusic").pause();document.getElementById("bgMusic").currentTime=0;}catch(e){}
+      // show that question closed and show personal score & rank
+      setStatus("Câu đã kết thúc — xem điểm & hạng");
+      // show personal info
+      document.getElementById("personalInfo").style.display="block";
+      // attempt to compute & display latest personal score & rank (listeners below update them)
+      // show popup whether you were correct
+      db.ref("rooms/"+roomId+"/current/answers/"+playerId).get().then(snap=>{
+        const a = snap.val();
+        // We cannot see correct, but we can infer correctness by comparing scores change; simpler: rely on /scores updates to show increment popup already
+        if(a){
+          // we show a generic popup (teacher will have scored and ranking updated)
+          // but to show correct/incorrect, we can compare previous score change — already handled in scores listener.
+        }
+      });
+    }
+  });
+
+  // listen if room removed
+  db.ref("rooms/"+roomId).on("value", snap=>{
+    if(!snap.val()){
+      setStatus("Phòng đã được xoá (Game kết thúc).");
+      document.getElementById("opts").innerHTML="";
+    }
+  });
+}
+
+// render question on student (NEW: handles MC with local shuffle and input type)
+function renderQuestion(q){
   document.getElementById("qText").textContent = q.text;
-  const box=document.getElementById("opts");box.innerHTML="";
-  if(q.type==="input"){
-    const wrapper = document.createElement("div"); wrapper.className="input-answer";
-    const inp = document.createElement("input"); inp.placeholder="Nhập đáp án (vd: pi/6 hoặc can(2)...)";
-    const btn = document.createElement("button"); btn.textContent="Submit";
+  const box = document.getElementById("opts"); box.innerHTML = "";
+  hasAnswered = false;
+  // if input-type
+  if(q.type === "input"){
+    const wrapper = document.createElement("div"); wrapper.className = "input-answer";
+    const inp = document.createElement("input"); inp.placeholder = "Nhập đáp án (vd: pi/6 hoặc can(2) hoặc khong xac dinh)";
+    const btn = document.createElement("button"); btn.textContent = "Submit";
     btn.onclick = ()=>{ submitInput(inp.value); };
     wrapper.appendChild(inp); wrapper.appendChild(btn); box.appendChild(wrapper);
   } else {
-    const colors=["red","blue","yellow","green"];
-    // if options provided shuffled on teacher but teacher stored original options in q.options; we'll render them in the same order teacher sent
-    const opts = q.options || [];
-    for(let k=0;k<opts.length;k++){
-      const d=document.createElement("div");
-      d.className="opt "+colors[k%4];
-      d.textContent=String.fromCharCode(65+k)+". "+opts[k];
-      d.onclick = ()=>{ submitAnswer(k); };
+    // MC: q.options is original order -> student creates local shuffle (NEW)
+    const origOptions = q.options || [];
+    const idxs = origOptions.map((_,i)=>i);
+    shuffleArray(idxs); // local shuffle
+    localShuffle = idxs.slice(); // store mapping: localIdx -> originalIdx
+    const colors = ["red","blue","yellow","green"];
+    for(let k=0;k<idxs.length;k++){
+      const origIdx = idxs[k];
+      const d = document.createElement("div");
+      d.className = "opt "+colors[k%4];
+      d.textContent = String.fromCharCode(65+k) + ". " + origOptions[origIdx];
+      (function(localIndex, originalIndex){
+        d.onclick = ()=>{ submitAnswer(originalIndex, localIndex); };
+      })(k, origIdx);
       box.appendChild(d);
     }
   }
+  // reset personal info visibility for new question
+  document.getElementById("personalInfo").style.display = "none";
 }
 
-// submit for MC
-async function submitAnswer(ansIndex){
+// submit MC answer: send originalIndex so teacher can grade correctly (NEW)
+async function submitAnswer(originalIndex, localIndex){
   if(hasAnswered) return;
   try{document.getElementById("clickSound").play();}catch(e){}
-  // save answer and timestamp; also store remaining time for convenience
   const now = Date.now();
   const timeLeft = Number(document.getElementById("timeLeft").textContent) || 0;
-  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:ansIndex,time:now,remaining:timeLeft});
-  hasAnswered=true;
-  lockUIAfterAnswer(ansIndex);
-  // popup placeholder until teacher closes
+  await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:originalIndex,time:now,remaining:timeLeft});
+  hasAnswered = true;
+  lockUIAfterAnswer(localIndex);
 }
 
-// submit for input
+// submit input answer
 async function submitInput(text){
   if(hasAnswered) return;
   const val = String(text||"").trim();
   if(!val) return;
   const now = Date.now();
   const timeLeft = Number(document.getElementById("timeLeft").textContent) || 0;
-  // normalize submission: user is expected to use 'pi' and 'can(2)' as requested
+  // normalize expected format: user should use pi and can(2)
   await db.ref("rooms/"+roomId+"/current/answers/"+playerId).set({name:playerName,answer:val,time:now,remaining:timeLeft});
-  hasAnswered=true;
+  hasAnswered = true;
   lockUIAfterAnswer(null);
 }
 
-// disable options after answering and show local indicator
-function lockUIAfterAnswer(chosenIndex){
-  const box=document.getElementById("opts");
+// lock UI locally after answer
+function lockUIAfterAnswer(localIndex){
+  const box = document.getElementById("opts");
   Array.from(box.children).forEach((el,i)=>{
     el.classList.add("muted");
     el.onclick = null;
@@ -181,70 +211,33 @@ function lockUIAfterAnswer(chosenIndex){
   try{document.getElementById("clickSound").play();}catch(e){}
 }
 
-// reveal correct/wrong when teacher closes
-function revealAnswer(cur){
-  const box=document.getElementById("opts");
-  // if question type input show correct text and compare student's answer
-  if(cur.q.type==="input"){
-    // show correct text
-    box.innerHTML="";
-    const correctText = cur.correctText || cur.q.correctText || "";
-    const p=document.createElement("div"); p.style.padding="14px"; p.style.borderRadius="8px"; p.style.background="#06202a";
-    p.innerHTML = `<strong>Đáp án đúng:</strong> ${correctText} <br/><small>(học sinh nhập: pi cho π, can(2) cho √2)</small>`;
-    box.appendChild(p);
+// listen for personal score & ranking updates (and show popup on increase)
+function listenRank(){
+  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value", s=>{
+    const old = Number(document.getElementById("myScore").textContent) || 0;
+    const val = s.val() || 0;
+    document.getElementById("myScore").textContent = val;
+    if(val > old){
+      const diff = val - old;
+      showPopup("+" + diff);
+      try{document.getElementById("correctSound").play();}catch(e){}
+    }
+  });
 
-    // show whether this student was correct
-    db.ref("rooms/"+roomId+"/current/answers/"+playerId).get().then(snap=>{
-      const a=snap.val();
-      const given=(a && String(a.answer||"")).toLowerCase().trim().replace(/\s+/g,'');
-      const expected=(String(correctText||"")).toLowerCase().trim().replace(/\s+/g,'');
-      const accepted=[expected];
-      if(expected==="khong xac dinh") accepted.push("khôngxácđịnh","undefined");
-      const ok = accepted.includes(given);
-      showPopup(ok ? "✅" : "❌");
-      try{ if(ok) document.getElementById("correctSound").play(); else document.getElementById("wrongSound").play(); }catch(e){}
-    });
-  } else {
-    // mark options: find which option equals correctIndex value
-    const corr = cur.correctIndex;
-    // mark each option element
-    Array.from(box.children).forEach((el,i)=>{
-      // el.textContent shows "A. option" - we need to compare by index position
-      if(i===corr){
-        el.classList.add("correct");
-      } else {
-        el.classList.add("wrong");
-      }
-    });
-
-    // show popup for this student depending on their answer
-    db.ref("rooms/"+roomId+"/current/answers/"+playerId).get().then(snap=>{
-      const a=snap.val();
-      const ok = a && Number(a.answer)===Number(corr);
-      showPopup(ok ? "✅" : "❌");
-      try{ if(ok) document.getElementById("correctSound").play(); else document.getElementById("wrongSound").play(); }catch(e){}
-    });
-  }
+  db.ref("rooms/"+roomId+"/ranking").on("value", snap=>{
+    const arr = snap.val() || [];
+    let rank = "-";
+    arr.forEach((r,i)=>{ if(r.pid === playerId) rank = i+1; });
+    document.getElementById("myRank").textContent = rank;
+    // show personal info panel
+    document.getElementById("personalInfo").style.display = "block";
+  });
 }
 
-// popup small feedback
+// small popup
 function showPopup(txt){
   const p=document.createElement("div");p.className="popup";p.textContent=txt;
   document.body.appendChild(p);setTimeout(()=>p.remove(),1000);
-}
-
-// listen rank & score updates
-function listenRank(){
-  db.ref("rooms/"+roomId+"/scores/"+playerId).on("value",s=>{
-    const old=parseInt(document.getElementById("myScore").textContent)||0;
-    const val=s.val()||0;document.getElementById("myScore").textContent=val;
-    if(val>old)showPopup("+"+(val-old));
-  });
-  db.ref("rooms/"+roomId+"/ranking").on("value",snap=>{
-    const arr=snap.val()||[];let rank="-";
-    arr.forEach((r,i)=>{if(r.pid===playerId)rank=i+1;});
-    document.getElementById("myRank").textContent=rank;
-  });
 }
 </script>
 </body>
