@@ -115,7 +115,7 @@ const questions=[
   {text:"45° = ?",options:["π/4","π/3","π/6","π/2"],correct:0,time:30},
   {text:"30° = ?",options:["π/6","π/3","π/4","π/2"],correct:0,time:30},
   {text:"Radian của 120° là?",options:["2π/3","π/2","π/3","π"],correct:0,time:90},
-  {text:"Đổi 225° sang radian (nhập dạng có π)",type:"input",correctText:"5π/4",time:90}, //7 input
+  {text:"Đổi 225° sang radian (chú ý 3π/2 thì nhập là 3pi/2)",type:"input",correctText:"5pi/4",time:90}, //7 input
 
   {text:"Công thức tính độ dài cung tròn là gì?",options:["l=R·a","l=R/a","l=a/R","l=R+a"],correct:0,time:30},
   {text:"Cho R=2, a=π. Độ dài cung l=?",options:["2π","π","4π","π/2"],correct:0,time:30},
@@ -123,7 +123,7 @@ const questions=[
   {text:"Cho R=3, a=π/2. Độ dài cung l=?",options:["3π/2","3π","π/2","6π"],correct:0,time:30},
   {text:"Nếu l=2π, a=π thì R bằng bao nhiêu?",options:["2","1","π","4"],correct:0,time:30},
   {text:"Một bánh xe có bán kính 0,5m quay được góc 4rad. Độ dài cung l mà điểm trên vành bánh xe đi được là?",options:["2m","1m","4m","0,5m"],correct:0,time:90},
-  {text:"Một vòng tròn có R=7m, cung có số đo 120°. Tính độ dài cung (nhập kết quả dạng π)",type:"input",correctText:"14π/3",time:90}, //14 input
+  {text:"Một vòng tròn có R=7m, cung có số đo 120°. Tính độ dài cung (chú ý 3π/2 thì nhập là 3pi/2)",type:"input",correctText:"14pi/3",time:90}, //14 input
 
   {text:"Cho điểm M(1,0) trên đường tròn đơn vị, góc a tương ứng. cos a = ?",options:["1","0","-1","khong xac dinh"],correct:0,time:30},
   {text:"Cho điểm M(0,1). sin a = ?",options:["1","0","-1","khong xac dinh"],correct:0,time:30},
@@ -131,7 +131,7 @@ const questions=[
   {text:"Tan 45° = ?",options:["1","0","-1","khong xac dinh"],correct:0,time:30},
   {text:"Cot 45° = ?",options:["1","0","-1","khong xac dinh"],correct:0,time:30},
   {text:"Cho M(0,-1). sin a = ?",options:["-1","0","1","khong xac dinh"],correct:0,time:90},
-  {text:"Tính sin 780° (nhập kết quả dạng π hoặc căn)",type:"input",correctText:"can(3)/2",time:90}, //21 input
+  {text:"Tính sin 780° (chú ý 2căn(5)/7 thì nhập là 2can(5)/7)",type:"input",correctText:"can(3)/2",time:90}, //21 input
 
   {text:"Công thức nào đúng?",options:["sin²a+cos²a=1","sin²a−cos²a=1","tan²a+1=cos²a","cot²a+1=tan²a"],correct:0,time:30},
   {text:"Tan a = ?",options:["sin a / cos a","cos a / sin a","1/cos a","1/sin a"],correct:0,time:30},
@@ -139,7 +139,7 @@ const questions=[
   {text:"Cos(180°−a) = ?",options:["−cos a","cos a","sin a","−sin a"],correct:0,time:30},
   {text:"Sin(180°−a) = ?",options:["sin a","−sin a","cos a","−cos a"],correct:0,time:30},
   {text:"Công thức nào sau đây đúng?",options:["1+tan²a=1/cos²a","1+sin²a=cos²a","1+cot²a=sin²a","cos²a+1=tan²a"],correct:0,time:90},
-  {text:"Cho sin a=3/4, 90°<a<180°. Tính tan a (nhập phân số).",type:"input",correctText:"3/can(7)",time:90} //28 input
+  {text:"Cho sin a=3/4, 90°<a<180°. Tính tan a (chú ý 2căn(5)/7 thì nhập là 2can(5)/7).",type:"input",correctText:"3can(7)/7",time:90} //28 input
 ];
 
 
@@ -388,3 +388,4 @@ async function endGame(){
 </script>
 </body>
 </html>
+
