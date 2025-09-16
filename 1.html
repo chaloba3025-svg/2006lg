@@ -107,52 +107,16 @@ const db=firebase.database();
 
 let roomId=null,currentIndex=-1,countdown=null,playersCache={}, teacherShuffle=[];
 
-// ===== 38 câu =====
-const questions = [
-{text:"90° = ?", options:["π/2","π","2π","π/3"], correct:0, time:30},
-{text:"45° = ?", options:["π/4","π/6","π/3","π/2"], correct:0, time:30},
-{text:"60° = ?", options:["π/3","π/2","2π/3","π/4"], correct:0, time:30},
-{text:"180° = ?", options:["π","π/2","2π","3π/2"], correct:0, time:30},
-{text:"270° = ?", options:["3π/2","π","2π","π/2"], correct:0, time:30},
-{text:"360° = ?", options:["2π","π","π/2","3π/2"], correct:0, time:30},
-{text:"30° = ?rad", type:"input", correctText:"pi/6", time:60}, //7 input
-{text:"120° = ?", options:["2π/3","π/3","π/2","π"], correct:0, time:30},
-{text:"150° = ?", options:["5π/6","π/2","2π/3","π"], correct:0, time:30},
-{text:"210° = ?", options:["7π/6","π","3π/2","2π"], correct:0, time:30},
-{text:"240° = ?", options:["4π/3","π","π/2","3π/2"], correct:0, time:30},
-{text:"300° = ?", options:["5π/3","π","π/2","2π"], correct:0, time:30},
-{text:"330° = ?", options:["11π/6","π","π/2","2π"], correct:0, time:30},
-{text:"Sin(0°) = ?", type:"input", correctText:"0", time:60}, //14 input
-{text:"Cos(0°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"Sin(90°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"Cos(90°) = ?", options:["0","1","-1","Không xác định"], correct:0, time:30},
-{text:"Sin(180°) = ?", options:["0","1","-1","Không xác định"], correct:0, time:30},
-{text:"Cos(180°) = ?", options:["-1","0","1","Không xác định"], correct:0, time:30},
-{text:"Sin(270°) = ?", options:["-1","0","1","Không xác định"], correct:0, time:30},
-{text:"Sin(270°) = ?", type:"input", correctText:"-1", time:30}, //21 input
-{text:"Cos(270°) = ?", options:["0","-1","1","Không xác định"], correct:0, time:30},
-{text:"Sin(360°) = ?", options:["0","1","-1","Không xác định"], correct:0, time:30},
-{text:"Cos(360°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"Tan(45°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"Cot(45°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"cot(90°) = ?", options:["0","1","Không xác định","-1"], correct:0, time:30},
-{text:"Tan(90°) = ?", options:["Không xác định","0","1","-1"], correct:0, time:30},
-{text:"Cot(0°) = ?", options:["Không xác định","0","1","-1"], correct:0, time:30},
-{text:"tan(60°) = ?", type:"input", correctText:"can(3)", time:60}, //28 input
+// ===== 28 câu chuẩn hóa từ bộ 1, giữ cấu trúc như bộ 2, dùng ký hiệu "π" =====
+const questions=[
+  {text:"90° đổi sang radian bằng bao nhiêu?",options:["π/2","π","2π","π/3"],correct:0,time:30},
+  {text:"180° = ?",options:["π","π/2","2π","3π/2"],correct:0,time:30},
+  {text:"360° = ?",options:["2π","π","π/2","3π/2"],correct:0,time:30},
+  {text:"45° = ?",options:["π/4","π/3","π/6","π/2"],correct:0,time:30},
+  {text:"30° = ?",options:["π/6","π/3","π/4","π/2"],correct:0,time:30},
+  {text:"Radian của 120° là?",options:["2π/3","π/2","π/3","π"],correct:0,time:90},
+  {text:"Đổi 225° sang radian (chú ý 3π/2 thì nhập là 3pi/2)",type:"input",correctText:"5pi/4",time:90}, //7 input
 
-// 5 câu thêm sau câu 13
-{text:"Sin(45°) = ?", type:"input", correctText:"can(2)/2", time:30},
-{text:"Cos(60°) = ?", options:["1/2","căn(3)/2","0","1"], correct:0, time:30},
-{text:"Tan(30°) = ?", options:["căn(3)/3","căn(3)","1","0"], correct:0, time:30},
-{text:"Cot(π/3) = ?", options:["căn(3)/3","sqrt(3)","1","0"], correct:0, time:30},
-{text:"Sin(300°) = ?", type:"input", correctText:"-can(3)/2", time:60},
-
-// 5 câu thêm trước câu 28
-{text:"Sin(180°−a) = ?", options:["sin a","-sin a","cos a","-cos a"], correct:0, time:30},
-{text:"Cos(180°−a) = ?", options:["-cos a","cos a","sin a","-sin a"], correct:0, time:30},
-{text:"Sin(90°-a) = ?", options:["cos a","-cos a","sin a","-sin a"], correct:0, time:30},
-{text:"tan(180°+a) = ?", options:["tan a","sin a","cos a","-cos a"], correct:0, time:30},
-{text:"cot(180°+a) = ?", options:["cot a","-tan a","tan a","-cot a"], correct:0, time:30}
   {text:"Công thức tính độ dài cung tròn là gì?",options:["l=R·a","l=R/a","l=a/R","l=R+a"],correct:0,time:30},
   {text:"Cho R=2, a=π. Độ dài cung l=?",options:["2π","π","4π","π/2"],correct:0,time:30},
   {text:"Cho l=π, R=1. Số đo cung a=?",options:["π","2π","π/2","1"],correct:0,time:30},
@@ -177,6 +141,8 @@ const questions = [
   {text:"Công thức nào sau đây đúng?",options:["1+tan²a=1/cos²a","1+sin²a=cos²a","1+cot²a=sin²a","cos²a+1=tan²a"],correct:0,time:90},
   {text:"Cho sin a=3/4, 90°<a<180°. Tính tan a (chú ý 2căn(5)/7 thì nhập là 2can(5)/7).",type:"input",correctText:"3can(7)/7",time:90} //28 input
 ];
+
+
 // helpers
 function shuffleArray(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 function genRoom(){const n=Math.floor(Math.random()*90)+10;return "A"+n;}
@@ -238,6 +204,11 @@ function showQuestion(q){
   const box = document.getElementById("optionsBox"); box.innerHTML = "";
 
   if(q.type === "input"){
+    // teacher preview (teacher sees correct text preview)
+    const preview = document.createElement("div");
+    preview.style.padding="12px"; preview.style.borderRadius="8px"; preview.style.background="#eef2ff";
+    preview.textContent = "Input — đáp án mong đợi: " + (q.correctText||"");
+    box.appendChild(preview);
     teacherShuffle = [];
   } else {
     // teacher shuffle for display (NEW)
