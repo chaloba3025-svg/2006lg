@@ -204,6 +204,11 @@ function showQuestion(q){
   const box = document.getElementById("optionsBox"); box.innerHTML = "";
 
   if(q.type === "input"){
+    // teacher preview (teacher sees correct text preview)
+    const preview = document.createElement("div");
+    preview.style.padding="12px"; preview.style.borderRadius="8px"; preview.style.background="#eef2ff";
+    preview.textContent = "Input — đáp án mong đợi: " + (q.correctText||"");
+    box.appendChild(preview);
     teacherShuffle = [];
   } else {
     // teacher shuffle for display (NEW)
