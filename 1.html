@@ -115,14 +115,14 @@ const questions = [
 {text:"180° = ?", options:["π","π/2","2π","3π/2"], correct:0, time:30},
 {text:"270° = ?", options:["3π/2","π","2π","π/2"], correct:0, time:30},
 {text:"360° = ?", options:["2π","π","π/2","3π/2"], correct:0, time:30},
-{text:"30° = ?", type:"input", correctText:"pi/6", time:30}, //7 input
+{text:"30° = ?rad", type:"input", correctText:"pi/6", time:60}, //7 input
 {text:"120° = ?", options:["2π/3","π/3","π/2","π"], correct:0, time:30},
 {text:"150° = ?", options:["5π/6","π/2","2π/3","π"], correct:0, time:30},
 {text:"210° = ?", options:["7π/6","π","3π/2","2π"], correct:0, time:30},
 {text:"240° = ?", options:["4π/3","π","π/2","3π/2"], correct:0, time:30},
 {text:"300° = ?", options:["5π/3","π","π/2","2π"], correct:0, time:30},
 {text:"330° = ?", options:["11π/6","π","π/2","2π"], correct:0, time:30},
-{text:"Sinh(0°) = ?", type:"input", correctText:"0", time:30}, //14 input
+{text:"Sin(0°) = ?", type:"input", correctText:"0", time:60}, //14 input
 {text:"Cos(0°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
 {text:"Sin(90°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
 {text:"Cos(90°) = ?", options:["0","1","-1","Không xác định"], correct:0, time:30},
@@ -135,24 +135,24 @@ const questions = [
 {text:"Cos(360°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
 {text:"Tan(45°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
 {text:"Cot(45°) = ?", options:["1","0","-1","Không xác định"], correct:0, time:30},
-{text:"Tan(0°) = ?", options:["0","1","Không xác định","-1"], correct:0, time:30},
+{text:"cot(90°) = ?", options:["0","1","Không xác định","-1"], correct:0, time:30},
 {text:"Tan(90°) = ?", options:["Không xác định","0","1","-1"], correct:0, time:30},
 {text:"Cot(0°) = ?", options:["Không xác định","0","1","-1"], correct:0, time:30},
-{text:"Cot(90°) = ?", type:"input", correctText:"khong xac dinh", time:30}, //28 input
+{text:"tan(60°) = ?", type:"input", correctText:"can(3)", time:60}, //28 input
 
 // 5 câu thêm sau câu 13
-{text:"Sin(45°) = ?", type:"input", correctText:"sqrt(2)/2", time:30},
-{text:"Cos(60°) = ?", options:["1/2","sqrt(3)/2","0","1"], correct:0, time:30},
-{text:"Tan(30°) = ?", options:["sqrt(3)/3","sqrt(3)","1","0"], correct:0, time:30},
-{text:"Cot(π/3) = ?", options:["sqrt(3)/3","sqrt(3)","1","0"], correct:0, time:30},
-{text:"Sin(300°) = ?", type:"input", correctText:"-sqrt(3)/2", time:30},
+{text:"Sin(45°) = ?", type:"input", correctText:"can(2)/2", time:30},
+{text:"Cos(60°) = ?", options:["1/2","căn(3)/2","0","1"], correct:0, time:30},
+{text:"Tan(30°) = ?", options:["căn(3)/3","căn(3)","1","0"], correct:0, time:30},
+{text:"Cot(π/3) = ?", options:["căn(3)/3","sqrt(3)","1","0"], correct:0, time:30},
+{text:"Sin(300°) = ?", type:"input", correctText:"-can(3)/2", time:60},
 
 // 5 câu thêm trước câu 28
 {text:"Sin(180°−a) = ?", options:["sin a","-sin a","cos a","-cos a"], correct:0, time:30},
 {text:"Cos(180°−a) = ?", options:["-cos a","cos a","sin a","-sin a"], correct:0, time:30},
-{text:"Sin(90°+a) = ?", options:["cos a","-cos a","sin a","-sin a"], correct:0, time:30},
-{text:"Cos(90°+a) = ?", options:["-sin a","sin a","cos a","-cos a"], correct:0, time:30},
-{text:"Tan(180°+a) = ?", options:["tan a","-tan a","cot a","-cot a"], correct:0, time:30}
+{text:"Sin(90°-a) = ?", options:["cos a","-cos a","sin a","-sin a"], correct:0, time:30},
+{text:"tan(180°+a) = ?", options:["tan a","sin a","cos a","-cos a"], correct:0, time:30},
+{text:"cot(180°+a) = ?", options:["cot a","-tan a","tan a","-cot a"], correct:0, time:30}
 ];
 
 // helpers
